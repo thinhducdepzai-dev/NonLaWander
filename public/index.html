@@ -321,6 +321,49 @@
     </div>
   </main>
 
+  <dialog id="replace-dialog" aria-labelledby="replace-title">
+    <div class="replace-sheet">
+      <header class="replace-heading">
+        <div class="replace-heading-row">
+          <h2 id="replace-title">Thay địa điểm</h2>
+          <button type="button" id="replace-cancel" class="text-button">Hủy</button>
+        </div>
+        <p id="replace-context"></p>
+        <p id="replace-window"></p>
+      </header>
+      <div id="replace-picker">
+        <div class="replace-filters">
+          <div>
+            <label for="replace-query">Tên địa điểm</label>
+            <input id="replace-query" type="search" placeholder="Tìm trong Library" autocomplete="off">
+          </div>
+          <div>
+            <label for="replace-group">Nhóm địa điểm</label>
+            <select id="replace-group"><option value="">Tất cả nhóm</option></select>
+          </div>
+        </div>
+        <p id="replace-result-count" role="status"></p>
+        <ul id="replace-results" class="replace-results" role="list"></ul>
+      </div>
+      <section id="replace-preview" aria-labelledby="replace-preview-title" hidden>
+        <h3 id="replace-preview-title" tabindex="-1">Xem trước thay đổi</h3>
+        <p id="replace-route" class="replace-route"></p>
+        <table class="replace-comparison">
+          <thead><tr><th scope="col">Thay đổi</th><th scope="col">Trước</th><th scope="col">Sau</th></tr></thead>
+          <tbody id="replace-comparison"></tbody>
+        </table>
+        <p id="replace-budget" class="replace-meta"></p>
+        <p id="replace-opening" class="small-notice" hidden></p>
+      </section>
+      <p id="replace-refresh" class="small-notice" role="status" hidden></p>
+      <div id="replace-error" class="error-box" role="alert" tabindex="-1" hidden></div>
+      <div id="replace-actions" class="replace-actions" hidden>
+        <button type="button" id="replace-confirm" class="primary-button">Xác nhận thay</button>
+        <button type="button" id="replace-back" class="text-button">Chọn điểm khác</button>
+      </div>
+    </div>
+  </dialog>
+
   <footer id="site-footer" class="site-footer" hidden>
     <div class="wrapper footer-inner">
       <a class="wordmark" href="#home" aria-label="NonLa Wander, về Home"><img src="/assets/nonla.svg" alt="" width="29" height="29"><span>NonLa <i>Wander</i></span></a>

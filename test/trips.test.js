@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { exampleDraft } from '../public/data.js';
+import { exampleDraft, placeById } from '../public/data.js';
 import { applyEdit, clock, createPlan, inspectPlan, prepareRequest, walkMinutes } from '../public/planner.js';
 import { createTripStore, hasDraftChanges, legacyStorageKey, tripStoragePrefix } from '../public/trips.js';
 
@@ -443,4 +443,167 @@ test('a deselected draft slot stays visible in the existing plan but is not a mo
 
   assert.deepEqual(store.moveVisit(id, { slotId: source.id, toSlotId: target.id, stopId: 'visit-ngoc-son' }), { error: 'target' });
   assert.deepEqual(store.get(id).draft.plan.slots[1], target);
+});
+
+test('preview is read-only and replacement distinguishes two visits to the same place', () => {
+  const storage = memoryStorage();
+  const store = createTripStore(storage);
+  const { id } = store.create();
+  const draft = savedTransferDraft(['ngoc-son'], []);
+  const [slot] = draft.plan.slots;
+  const [original] = slot.stops;
+  const distinct = { id: 'visit-a1234567890123456789012345678901', placeId: original.placeId, manual: true };
+  slot.stops.push(distinct);
+  store.saveDraft(id, draft);
+  const key = tripStoragePrefix + id;
+  const before = storage.getItem(key);
+  const command = { slotId: slot.id, stopId: distinct.id, placeId: 'dinh-cafe' };
+
+  const result = store.previewReplacement(id, command);
+  assert.equal(result.preview.before.placeId, 'ngoc-son');
+  assert.equal(storage.getItem(key), before);
+  const saved = store.replaceVisit(id, command, result.fingerprint);
+  assert.equal(saved.stopId, distinct.id);
+  assert.deepEqual(saved.trip.draft.plan.slots[0].stops, [original, { ...distinct, placeId: 'dinh-cafe' }]);
+  assert.deepEqual(createTripStore(storage).get(id), saved.trip);
+});
+
+test('legacy replacement survives reload, preserves snapshots and uses the applied slot window', () => {
+  const storage = memoryStorage();
+  const store = createTripStore(storage);
+  const { id } = store.create();
+  const other = store.create();
+  const draft = savedTransferDraft(['ngoc-son', 'dinh-cafe', 'nha-tho'], ['ma-may']);
+  const [slot] = draft.plan.slots;
+  store.saveDraft(id, draft);
+  const { confirmed } = store.confirm(id);
+  const command = { slotId: slot.id, stopId: 'visit-dinh-cafe', placeId: 'ho-guom' };
+  const expected = store.previewReplacement(id, command);
+  const latest = store.get(id).draft;
+  latest.form.days[slot.date].morning = { enabled: true, start: '10:00', end: '10:10' };
+  store.saveDraft(id, latest);
+  store.rename(id, 'Đổi tên chuyến');
+  const preview = store.previewReplacement(id, command);
+
+  assert.equal(preview.fingerprint, expected.fingerprint);
+  assert.equal(preview.preview.slot.start, 480);
+  assert.equal(preview.preview.slot.end, 660);
+  const result = store.replaceVisit(id, command, preview.fingerprint);
+  assert.match(result.stopId, /^visit-[a-f0-9]{32}$/);
+  const reopened = createTripStore(storage);
+  const stored = reopened.get(id);
+  assert.equal(stored.name, 'Đổi tên chuyến');
+  assert.deepEqual(stored.confirmed, confirmed);
+  assert.deepEqual(reopened.get(other.id), other);
+  assert.deepEqual(stored.draft.form, latest.form);
+  assert.deepEqual(stored.draft.plan.slots.slice(1), draft.plan.slots.slice(1));
+  assert.deepEqual(stored.draft.plan.slots[0].stops.map(({ id, placeId }) => [id, placeId]), [
+    ['visit-ngoc-son', 'ngoc-son'], [result.stopId, 'ho-guom'], ['visit-nha-tho', 'nha-tho'],
+  ]);
+  const reviewed = inspectPlan(stored.draft.plan).slots[0];
+  assert.equal(reviewed.start, preview.preview.slot.start);
+  assert.equal(reviewed.end, preview.preview.slot.end);
+  assert.equal(reviewed.stops[1].arrival, preview.preview.after.arrival);
+});
+
+test('replacing the middle visit recalculates both adjacent walking legs and the whole-trip total', () => {
+  const store = createTripStore(memoryStorage());
+  const { id } = store.create();
+  const draft = savedTransferDraft(['ngoc-son', 'dinh-cafe', 'nha-tho'], ['ma-may']);
+  const [slot] = draft.plan.slots;
+  store.saveDraft(id, draft);
+  const command = { slotId: slot.id, stopId: 'visit-dinh-cafe', placeId: 'ho-guom' };
+  const { preview, fingerprint } = store.previewReplacement(id, command);
+  const { ngoc, dinh, lake, church } = { ngoc: placeById['ngoc-son'], dinh: placeById['dinh-cafe'], lake: placeById['ho-guom'], church: placeById['nha-tho'] };
+
+  assert.deepEqual([preview.before.incoming.minutes, preview.before.outgoing.minutes], [walkMinutes(ngoc, dinh), walkMinutes(dinh, church)]);
+  assert.deepEqual([preview.after.incoming.minutes, preview.after.outgoing.minutes], [walkMinutes(ngoc, lake), walkMinutes(lake, church)]);
+  assert.notEqual(preview.before.incoming.minutes, preview.after.incoming.minutes);
+  assert.notEqual(preview.before.outgoing.minutes, preview.after.outgoing.minutes);
+  assert.equal(preview.before.total - preview.after.total, 55_000);
+
+  const result = store.replaceVisit(id, command, fingerprint);
+  const review = inspectPlan(result.trip.draft.plan);
+  assert.deepEqual(review.slots[0].stops.slice(0, 2).map(({ walkToNext }) => walkToNext), [preview.after.incoming.minutes, preview.after.outgoing.minutes]);
+  assert.equal(review.total, preview.after.total);
+});
+
+test('window, budget and fixed-time replacement conflicts leave the saved draft byte for byte', () => {
+  const storage = memoryStorage();
+  const store = createTripStore(storage);
+  const { id } = store.create();
+  const draft = savedTransferDraft(['nha-tho'], []);
+  const [slot] = draft.plan.slots;
+  slot.end = 520;
+  draft.form.budget = '35000';
+  store.saveDraft(id, draft);
+  const key = tripStoragePrefix + id;
+  const before = storage.getItem(key);
+  const command = { slotId: slot.id, stopId: 'visit-nha-tho', placeId: 'dinh-cafe' };
+  const preview = store.previewReplacement(id, command);
+
+  assert.equal(preview.preview.conflicts[0].code, 'window');
+  assert.equal(preview.preview.after.overBudget, 55_000);
+  assert.equal(store.replaceVisit(id, command, preview.fingerprint).trip, undefined);
+  assert.equal(storage.getItem(key), before);
+
+  slot.end = 660;
+  slot.stops.push({ id: 'visit-dinh-cafe', placeId: 'dinh-cafe', fixedStart: 540 });
+  draft.form.budget = '350000';
+  store.saveDraft(id, draft);
+  const anchored = storage.getItem(key);
+  const otherCommand = { ...command, placeId: 'ho-guom' };
+  const otherPreview = store.previewReplacement(id, otherCommand);
+
+  assert.ok(otherPreview.preview.conflicts.some(({ code, start, ready }) => code === 'fixed' && start === 540 && ready > start));
+  assert.equal(store.replaceVisit(id, otherCommand, otherPreview.fingerprint).trip, undefined);
+  assert.equal(storage.getItem(key), anchored);
+});
+
+test('a replacement of a fixed visit drops the old anchor and treats opening hours and missing cost as advisory', () => {
+  const store = createTripStore(memoryStorage());
+  const { id } = store.create();
+  const draft = savedTransferDraft(['nha-tho'], []);
+  const [slot] = draft.plan.slots;
+  slot.stops[0].fixedStart = 570;
+  store.saveDraft(id, draft);
+  const command = { slotId: slot.id, stopId: 'visit-nha-tho', placeId: 'cho-dem' };
+  const place = placeById['cho-dem'];
+  const cost = place.cost;
+  try {
+    delete place.cost;
+    const { preview, fingerprint } = store.previewReplacement(id, command);
+    assert.equal(preview.before.arrival, 570);
+    assert.equal(preview.after.arrival, 480);
+    assert.deepEqual(preview.openingWarnings, ['cho-dem']);
+    assert.deepEqual(preview.conflicts, []);
+    assert.equal(preview.after.missingCostCount, 1);
+    assert.equal(preview.after.total, 35_000);
+    const { trip } = store.replaceVisit(id, command, fingerprint);
+    assert.equal(trip.draft.plan.slots[0].stops[0].fixedStart, undefined);
+  } finally {
+    place.cost = cost;
+  }
+});
+
+test('a change to the affected route requires reviewing the new preview before a write', () => {
+  const storage = memoryStorage();
+  const store = createTripStore(storage);
+  const { id } = store.create();
+  const draft = savedTransferDraft(['ngoc-son', 'dinh-cafe', 'nha-tho'], []);
+  const [slot] = draft.plan.slots;
+  store.saveDraft(id, draft);
+  const command = { slotId: slot.id, stopId: 'visit-dinh-cafe', placeId: 'ho-guom' };
+  const old = store.previewReplacement(id, command);
+  const anotherTab = createTripStore(storage);
+  anotherTab.moveVisit(id, { slotId: slot.id, stopId: 'visit-nha-tho', toIndex: 0 });
+  const key = tripStoragePrefix + id;
+  const before = storage.getItem(key);
+
+  const refreshed = store.replaceVisit(id, command, old.fingerprint);
+
+  assert.equal(refreshed.changed, true);
+  assert.notEqual(refreshed.preview.after.arrival, old.preview.after.arrival);
+  assert.equal(storage.getItem(key), before);
+  assert.ok(store.replaceVisit(id, command, refreshed.fingerprint).trip);
 });

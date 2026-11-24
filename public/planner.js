@@ -214,6 +214,11 @@ export function hasKnownCost(place) {
   return Number.isFinite(place.cost) && place.cost >= 0;
 }
 
+export function draftBudget(plan, form) {
+  const current = Number(form.budget);
+  return form.budget.trim() !== '' && Number.isSafeInteger(current) && current >= 0 ? current : plan.request.budget;
+}
+
 function planCosts(slots, budget) {
   let total = 0;
   let missingCostCount = 0;
@@ -330,9 +335,7 @@ export function appendVisit(plan, request, { slotId, placeId }) {
 
   const current = plan ?? emptyPlan(request);
   const previous = current.slots.find((slot) => slot.id === slotId);
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  const id = `visit-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')}`;
-  const slot = { ...target, stops: [...(previous?.stops ?? []), { id, placeId, manual: true }] };
+  const slot = { ...target, stops: [...(previous?.stops ?? []), { id: newVisitId(), placeId, manual: true }] };
   const others = current.slots.filter((item) => item.id !== slotId);
   const slots = sortedSlots([...others, slot]);
 
@@ -350,6 +353,56 @@ export function appendVisit(plan, request, { slotId, placeId }) {
   // Apply the selected window and the current whole-trip budget while keeping the other slots from the itinerary.
   const updatedRequest = requestWithSlots({ ...current.request, budget: request.budget }, slots);
   return { plan: { ...current, request: updatedRequest, slots } };
+}
+
+export function newVisitId() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return `visit-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')}`;
+}
+
+function replacementSummary(route, index, costs) {
+  const { placeId, arrival } = route.stops[index];
+  const previous = route.stops[index - 1];
+  const next = route.stops[index + 1];
+  return {
+    placeId, arrival, ...costs,
+    incoming: previous && { placeId: previous.placeId, minutes: previous.walkToNext },
+    outgoing: next && { placeId: next.placeId, minutes: route.stops[index].walkToNext },
+  };
+}
+
+export function previewReplacement(plan, { slotId, stopId, placeId }, budget = plan.request.budget) {
+  const slotIndex = plan.slots.findIndex((slot) => slot.id === slotId);
+  const slot = plan.slots[slotIndex];
+  const index = slot?.stops.findIndex((stop) => stop.id === stopId) ?? -1;
+  if (index < 0) return { error: 'visit' };
+  const previous = slot.stops[index];
+  if (previous.placeId === placeId || !Object.hasOwn(placeById, placeId)) return { error: 'place' };
+
+  const beforeRoute = schedule(slot);
+  // The replacement is a new visit to the place, with no fixed time inherited from the original visit.
+  const stops = slot.stops.with(index, { id: previous.id, placeId, manual: true });
+  const nextSlot = { ...slot, stops };
+  const afterRoute = schedule(nextSlot);
+  const slots = plan.slots.with(slotIndex, nextSlot);
+  const before = replacementSummary(beforeRoute, index, planCosts(plan.slots, budget));
+  const after = replacementSummary(afterRoute, index, planCosts(slots, budget));
+  const conflicts = [];
+  const openingWarnings = [];
+  for (const stop of afterRoute.stops) {
+    for (const issue of stop.issues) {
+      if (issue.code === 'opening') openingWarnings.push(stop.placeId);
+      else conflicts.push({ ...issue, placeId: stop.placeId, departure: stop.departure });
+    }
+  }
+
+  const { date, period, start, end } = slot;
+  const preview = { slot: { date, period, start, end }, before, after, budget, conflicts, openingWarnings };
+  // Include the affected route in the check, so changes to later visits also require review.
+  const timing = ({ stops }) => stops.map(({ id, placeId, arrival, departure, walkToNext, fixedStart }) =>
+    [id, placeId, arrival, departure, walkToNext, fixedStart]);
+  const fingerprint = JSON.stringify([preview, timing(beforeRoute), timing(afterRoute)]);
+  return { preview, fingerprint, candidate: { ...plan, slots }, slotIndex, index };
 }
 
 export function inspectPlan(plan, budget = plan.request.budget) {

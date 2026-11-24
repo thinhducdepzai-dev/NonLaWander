@@ -6,15 +6,20 @@ const $ = (id) => document.getElementById(id);
 const query = $('library-query');
 const category = $('library-category');
 const results = $('library-places');
-const groups = new Set(places.map((place) => place.category).filter(Boolean));
+export const libraryGroups = [...new Set(places.map((place) => place.category).filter(Boolean))];
 const areaLabels = new Map(areas.map((area) => [area.id, area.label]));
 const currency = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
 const dayLabels = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ nhật'];
 
-for (const label of groups) category.add(new Option(label, label));
+for (const label of libraryGroups) category.add(new Option(label, label));
 
 function foldName(value) {
   return value.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').replaceAll('đ', 'd').trim().replace(/\s+/g, ' ');
+}
+
+export function filterLibraryPlaces(query, group) {
+  const name = foldName(query);
+  return places.filter((place) => foldName(place.name).includes(name) && (!group || place.category === group));
 }
 
 function libraryHref(placeId, options = {}) {
@@ -50,9 +55,8 @@ function placeCost(place) {
 }
 
 function renderResults() {
-  const name = foldName(query.value);
   const group = category.value;
-  const matching = places.filter((place) => foldName(place.name).includes(name) && (!group || place.category === group));
+  const matching = filterLibraryPlaces(query.value, group);
 
   results.replaceChildren(...matching.map((place) => {
     const item = $('library-place-template').content.firstElementChild.cloneNode(true);

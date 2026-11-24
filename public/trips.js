@@ -1,5 +1,5 @@
 import { areas, periodById, placeById, transports, vibes } from './data.js';
-import { appendVisit, dateIndex, moveVisit, prepareRequest } from './planner.js';
+import { appendVisit, dateIndex, draftBudget, moveVisit, newVisitId, prepareRequest, previewReplacement } from './planner.js';
 
 export const legacyStorageKey = 'nonla-wander-v1';
 export const tripStoragePrefix = 'nonla-wander-v2:';
@@ -225,6 +225,34 @@ export function createTripStore(storage) {
     return { trip: write({ ...trip, draft }) };
   }
 
+  function calculateReplacement(trip, command) {
+    const draft = trip?.draft;
+    if (!draft?.plan) return { error: 'visit' };
+    return previewReplacement(draft.plan, command, draftBudget(draft.plan, draft.form));
+  }
+
+  function previewDraftReplacement(id, command) {
+    const { preview, fingerprint, error } = calculateReplacement(get(id), command);
+    return { preview, fingerprint, error };
+  }
+
+  function replaceDraftVisit(id, command, expected) {
+    const trip = get(id);
+    const { preview, fingerprint, candidate, slotIndex, index, error } = calculateReplacement(trip, command);
+    if (error) return { error };
+    if (fingerprint !== expected) return { preview, fingerprint, changed: true };
+    if (preview.conflicts.length || preview.after.overBudget) return { preview, fingerprint };
+
+    const { stopId } = command;
+    // Older IDs were tied to the place; save an independent ID only with the confirmed replacement.
+    const idToSave = stopId === `visit-${preview.before.placeId}` ? newVisitId() : stopId;
+    const slot = candidate.slots[slotIndex];
+    const stops = slot.stops.with(index, { ...slot.stops[index], id: idToSave });
+    const plan = { ...candidate, slots: candidate.slots.with(slotIndex, { ...slot, stops }) };
+    const draft = { ...trip.draft, plan, undo: null };
+    return { trip: write({ ...trip, draft }), stopId: idToSave };
+  }
+
   function confirm(id) {
     const trip = get(id);
     if (!trip?.draft.plan) return null;
@@ -232,7 +260,8 @@ export function createTripStore(storage) {
   }
 
   return {
-    list, get, create, rename, saveDraft, addVisit, moveVisit: moveDraftVisit, confirm, migrateLegacy,
+    list, get, create, rename, saveDraft, addVisit, moveVisit: moveDraftVisit,
+    previewReplacement: previewDraftReplacement, replaceVisit: replaceDraftVisit, confirm, migrateLegacy,
     get storageProblem() { return readFailed || unsaved.size > 0; },
   };
 }

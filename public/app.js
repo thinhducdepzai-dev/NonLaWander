@@ -1,7 +1,8 @@
 import { areas, exampleDraft, periodById, periods, placeById, places, transports, vibes } from './data.js';
 import { icon } from './icons.js';
 import { getLibraryReturn, renderLibrary, setupLibraryAdd } from './library.js';
-import { applyEdit, clock, createPlan, dateAt, dateIndex, hasKnownCost, inspectPlan, moveDestinations, openingHours, prepareRequest, weekday } from './planner.js';
+import { applyEdit, clock, createPlan, dateAt, dateIndex, draftBudget, hasKnownCost, inspectPlan, moveDestinations, openingHours, prepareRequest, weekday } from './planner.js';
+import { setupReplacement } from './replace-visit.js';
 import { createTripStore, hasDraftChanges } from './trips.js';
 
 const $ = (id) => document.getElementById(id);
@@ -344,9 +345,7 @@ form.addEventListener('submit', (event) => {
 });
 
 function reviewPlan() {
-  const current = Number(draft.budget);
-  const valid = String(draft.budget).trim() !== '' && Number.isSafeInteger(current) && current >= 0;
-  const budget = valid ? current : plan.request.budget;
+  const budget = draftBudget(plan, draft);
   return { ...inspectPlan(plan, budget), budget };
 }
 
@@ -448,6 +447,7 @@ function stopMarkup(slot, stop, index, opened, destinations) {
       ${editButton('down', 'Xuống', slot, stop, index === slot.stops.length - 1)}
       ${editButton('remove', 'Bỏ', slot, stop)}
       ${destinations.some(({ id }) => id !== slot.id) ? `<button type="button" data-action="transfer" data-slot="${slot.id}" data-stop="${stop.id}" aria-label="Chuyển ${place.name} sang buổi khác" aria-expanded="${showMove}" ${showMove ? 'aria-controls="timeline-move-form"' : ''}>${icon('route')}Chuyển sang buổi…</button>` : ''}
+      <button type="button" data-action="replace" data-slot="${slot.id}" data-stop="${stop.id}" aria-haspopup="dialog" aria-label="Thay địa điểm ${place.name}">${icon('edit')}Thay địa điểm</button>
     </div>` : ''}
     ${moveFeedback?.stopId === stop.id && moveFeedback.slotId === slot.id ? moveErrorMarkup() : ''}
     ${editing ? moveForm(slot, stop, destinations) : ''}
@@ -559,6 +559,17 @@ function moveConflictText(issue) {
   }
 }
 
+function renderEditedTrip(trip) {
+  const formChanged = JSON.stringify(draft) !== JSON.stringify(trip.draft.form);
+  activeTrip = trip;
+  ({ form: draft, plan, appliedDraft, undo } = activeTrip.draft);
+  clearMove();
+  if (formChanged) syncDraft();
+  updateTripControls();
+  showStorageStatus();
+  renderPlan();
+}
+
 function performMove(command, action) {
   if (!editing || viewingConfirmed) return;
   const result = trips.moveVisit(activeTrip.id, command);
@@ -573,14 +584,7 @@ function performMove(command, action) {
     return;
   }
 
-  const formChanged = JSON.stringify(draft) !== JSON.stringify(result.trip.draft.form);
-  activeTrip = result.trip;
-  ({ form: draft, plan, appliedDraft, undo } = activeTrip.draft);
-  clearMove();
-  if (formChanged) syncDraft();
-  updateTripControls();
-  showStorageStatus();
-  renderPlan();
+  renderEditedTrip(result.trip);
 
   const slot = plan.slots.find((item) => item.id === (command.toSlotId ?? command.slotId));
   const place = placeById[slot.stops.find((stop) => stop.id === command.stopId).placeId];
@@ -626,6 +630,17 @@ timeline.addEventListener('click', (event) => {
   const { action, slot: slotId, stop: stopId } = control.dataset;
   if (action === 'transfer') {
     toggleMoveForm(control);
+    return;
+  }
+  if (action === 'replace') {
+    clearMove();
+    renderPlan();
+    if (!replacement.open(activeTrip.id, slotId, stopId)) {
+      const latest = trips.get(activeTrip.id);
+      if (latest) renderEditedTrip(latest);
+      $('edit-plan').focus();
+      announce('Lượt ghé đã thay đổi. Hãy chọn lại trên timeline.');
+    }
     return;
   }
   const slot = plan.slots.find((item) => item.id === slotId);
@@ -787,6 +802,7 @@ function toggleRename(show) {
 }
 
 function renderRoute(focus = false, previousHash = '') {
+  replacement.close();
   const previousId = activeTrip?.id;
   const { hash } = location;
   const [path, search] = hash.split('?', 2);
@@ -889,6 +905,20 @@ const renderLibraryAdd = setupLibraryAdd({
   showAdded(tripId, placeName, returnHref) {
     addedVisitNotice = { tripId, placeName };
     location.hash = tripHash(tripId, false, returnHref);
+  },
+});
+
+const replacement = setupReplacement({
+  trips,
+  onSaved(trip, placeName) {
+    renderEditedTrip(trip);
+    announce(`Đã thay địa điểm trong bản nháp bằng ${placeName}.`);
+  },
+  focusVisit({ tripId, slotId, stopId }) {
+    if (activeTrip?.id !== tripId || !editing || viewingConfirmed) return;
+    const latest = trips.get(tripId);
+    if (latest && JSON.stringify(latest) !== JSON.stringify(activeTrip)) renderEditedTrip(latest);
+    (timeline.querySelector(`[data-action="replace"][data-slot="${slotId}"][data-stop="${stopId}"]`) ?? $('edit-plan')).focus();
   },
 });
 
