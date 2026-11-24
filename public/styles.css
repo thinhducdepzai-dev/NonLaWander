@@ -26,6 +26,9 @@
 
 html { scroll-behavior: smooth; }
 body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
   margin: 0;
   color: var(--ink);
   font: 1rem/1.56 var(--sans);
@@ -71,6 +74,7 @@ input:focus-visible, textarea:focus-visible { outline-offset: 1px; }
 }
 .skip-link:focus { transform: none; }
 .wrapper { width: min(calc(100% - 2rem), var(--wrap)); margin-inline: auto; }
+main.wrapper { flex: 1; }
 .site-header { border-bottom: 1px solid var(--line); background: #fbf6ecb5; }
 .header-inner { display: flex; align-items: center; justify-content: space-between; gap: .35rem 1rem; flex-wrap: wrap; padding-block: .55rem; }
 .wordmark {
@@ -88,6 +92,7 @@ input:focus-visible, textarea:focus-visible { outline-offset: 1px; }
 nav { display: flex; gap: .45rem 1.25rem; order: 3; width: 100%; }
 nav a { display: inline-flex; align-items: center; min-height: 44px; font-size: .875rem; font-weight: 650; text-decoration: none; }
 nav a:hover { color: var(--accent); text-decoration: underline; text-underline-offset: .3em; }
+nav a[aria-current="page"] { color: var(--accent-strong); }
 .demo-tag { display: inline-flex; align-items: center; gap: .35rem; padding: .25rem .65rem; color: var(--green); background: var(--green-soft); border-radius: 50rem; font-size: .78rem; font-weight: 700; white-space: nowrap; }
 .demo-tag svg { width: .875rem; height: .875rem; }
 
@@ -95,8 +100,9 @@ nav a:hover { color: var(--accent); text-decoration: underline; text-underline-o
 .eyebrow { display: flex; align-items: center; gap: .38rem; color: var(--accent-strong); font-size: .76rem; font-weight: 750; letter-spacing: .11em; text-transform: uppercase; }
 .eyebrow svg { width: .98rem; height: .98rem; }
 .hero h1 { margin-block: .63rem .65rem; font: 500 clamp(2.9rem, 9.6vw, 5.35rem)/.99 var(--serif); letter-spacing: -.062em; }
-.hero h1 em { color: var(--accent); font-weight: 500; white-space: nowrap; }
-.hero-copy > p:last-child { max-width: 30rem; color: var(--muted); }
+.hero-copy > p { max-width: 30rem; }
+#empty-trips { color: var(--muted); }
+.hero-copy .create-trip { width: auto; margin-block: .9rem .55rem; }
 .postcard { display: grid; gap: .45rem; padding: .37rem .37rem .22rem; background: var(--card); border: 1px solid var(--line); border-radius: var(--small-radius); box-shadow: 1px 4px 15px #59361813; }
 .postcard img { width: 100%; height: auto; aspect-ratio: 2.7; object-fit: cover; object-position: 50% 53%; border-radius: 3px; background: var(--accent-soft); }
 .postcard figcaption {
@@ -111,8 +117,44 @@ nav a:hover { color: var(--accent); text-decoration: underline; text-underline-o
 .postcard figcaption span:first-child { display: inline-flex; align-items: center; gap: .2rem; }
 .postcard figcaption svg { width: .8rem; height: .8rem; color: var(--accent); }
 
+#trip-list-view { padding-bottom: 2.25rem; }
+.trip-list { display: grid; gap: .75rem; margin: 0; padding: 1.25rem 0 0; list-style: none; }
+.trip-list li { min-width: 0; }
+.trip-card {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .5rem .7rem;
+  min-height: 72px;
+  height: 100%;
+  padding: .75rem;
+  border: 1px solid var(--control-line);
+  border-radius: var(--radius);
+  background: var(--card);
+  text-decoration: none;
+}
+.trip-card:hover { border-color: var(--accent); }
+.trip-card:hover strong { color: var(--accent-strong); text-decoration: underline; text-underline-offset: .2em; }
+.trip-card-info { flex: 1 1 7rem; display: grid; min-width: 0; }
+.trip-card-info strong { font: 600 1.23rem/1.23 var(--serif); overflow-wrap: anywhere; }
+.trip-card-info > span { color: var(--muted); font-size: .81rem; }
+.trip-card-status { padding: .16rem .5rem; border-radius: 50rem; background: var(--accent-soft); color: var(--accent-strong); font-size: .76rem; font-weight: 720; }
+.trip-card-status.is-confirmed { background: var(--green-soft); color: var(--green); }
+
+.trip-header { padding-block: .75rem 1rem; border-bottom: 1px solid var(--line); }
+.back-link { display: inline-flex; align-items: center; min-height: 44px; color: var(--accent-strong); font-size: .88rem; font-weight: 680; text-underline-offset: .25em; }
+.trip-heading { display: flex; align-items: center; flex-wrap: wrap; gap: .35rem .75rem; margin-block: .2rem .4rem; }
+.trip-heading h1 { min-width: 0; font: 500 clamp(2rem, 5.8vw, 3.65rem)/1.1 var(--serif); letter-spacing: -.045em; overflow-wrap: anywhere; }
+#rename-form { max-width: 25rem; margin-block: .6rem; }
+.rename-actions, .itinerary-actions { display: flex; align-items: center; gap: .45rem; }
+.itinerary-actions { flex-wrap: wrap; }
+.version-links { align-items: center; flex-wrap: wrap; gap: .35rem .5rem; margin-top: .75rem; }
+.version-links a { padding-inline: .62rem; border: 1px solid var(--control-line); border-radius: var(--small-radius); background: var(--card); }
+.version-links a[aria-current="page"] { border-color: var(--accent); background: var(--accent-soft); }
+
 .planner-layout { display: grid; gap: 2.5rem; align-items: start; padding-block: 1.5rem 3rem; }
 .planner-layout > section { min-width: 0; scroll-margin-top: 1.2rem; }
+.planner-layout.confirmed-workspace { grid-template-columns: minmax(0, 1fr); max-width: 42rem; }
 .section-heading, .section-name, .panel-heading { display: flex; align-items: center; }
 .section-heading { justify-content: space-between; gap: .45rem .75rem; margin-bottom: .85rem; flex-wrap: wrap; }
 .section-name { gap: .6rem; }
@@ -150,7 +192,7 @@ nav a:hover { color: var(--accent); text-decoration: underline; text-underline-o
 .dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; margin-top: .72rem; }
 .field { min-width: 0; }
 .field label, fieldset > legend, .note label { display: block; margin-bottom: .31rem; font-size: .875rem; font-weight: 680; }
-input[type="date"], input[type="time"], input[type="number"], textarea {
+input[type="date"], input[type="time"], input[type="number"], #trip-name, textarea {
   display: block;
   background: var(--field);
   min-width: 0;
@@ -248,8 +290,8 @@ input[aria-invalid="true"] { border-color: var(--accent-strong); }
 .primary-button:hover { background: var(--accent-strong); }
 .primary-button:active, .text-button:active:not(:disabled), .stop-actions button:active:not(:disabled) { filter: brightness(.91); }
 button, .choice > span, .stop-chevron { transition: background-color 145ms ease, border-color 145ms ease, color 145ms ease, transform 145ms ease; }
-#storage-notice { margin-top: .4rem; }
-.error-box, .warning { padding: .58rem .7rem; background: var(--gold-soft); color: var(--gold); overflow-wrap: anywhere; border-radius: var(--small-radius); font-size: .84rem; }
+.storage-notice { margin-top: .75rem; }
+.error-box, .warning, .storage-notice { padding: .58rem .7rem; background: var(--gold-soft); color: var(--gold); overflow-wrap: anywhere; border-radius: var(--small-radius); font-size: .84rem; }
 .error-box ul { margin: .28rem 0 0; padding-left: 1.25rem; }
 .error-box a { display: inline-block; padding-block: .2rem; }
 .field-error { color: var(--accent-strong); font-size: .81rem; font-weight: 650; margin-top: .28rem; }
@@ -352,6 +394,7 @@ button, .choice > span, .stop-chevron { transition: background-color 145ms ease,
   nav { order: 0; width: auto; }
   .hero { grid-template-columns: 1fr 1fr; gap: 1.1rem; }
   .hero h1 { font-size: clamp(3.2rem, 8vw, 5.35rem); }
+  .trip-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .postcard img { aspect-ratio: 2; }
   .day-top { grid-template-columns: minmax(5.5rem, 1fr) auto; }
   .day-name { display: grid; }
@@ -363,8 +406,7 @@ button, .choice > span, .stop-chevron { transition: background-color 145ms ease,
 
 @media (min-width: 900px) {
   .hero { gap: 2.5rem; padding-block: 2rem 1.95rem; }
-  .hero h1 em { display: inline-block; }
-  .hero-copy > p:last-child { font-size: 1.06rem; }
+  #empty-trips { font-size: 1.06rem; }
   .postcard { width: min(100%, 482px); justify-self: end; padding: .47rem .47rem .3rem; }
   .postcard img { aspect-ratio: 2.27; }
   .planner-layout { grid-template-columns: minmax(0, 1.18fr) minmax(0, 1fr); gap: 1.6rem; padding-block: 1.65rem 3.5rem; }

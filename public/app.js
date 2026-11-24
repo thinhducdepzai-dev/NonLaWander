@@ -1,46 +1,51 @@
 import { areas, exampleDraft, periodById, periods, places, transports, vibes } from './data.js';
 import { icon } from './icons.js';
 import { applyEdit, clock, createPlan, dateAt, dateIndex, inspectPlan, openingHours, prepareRequest, weekday } from './planner.js';
+import { createTripStore, hasDraftChanges } from './trips.js';
 
 const $ = (id) => document.getElementById(id);
 const form = $('trip-form');
 const days = $('day-list');
 const timeline = $('timeline');
-const storeKey = 'nonla-wander-v1';
 const dayPageSize = 7;
 const currency = new Intl.NumberFormat('vi-VN');
 const money = (amount) => `${currency.format(amount)} ₫`;
 const shortDate = (date) => `${date.slice(8, 10)}/${date.slice(5, 7)}`;
 const year = (date) => date.slice(0, 4);
 
-function readStorage() {
+function browserStorage() {
   try {
-    return JSON.parse(localStorage.getItem(storeKey));
+    return window.localStorage;
   } catch {
-    return null;
+    return undefined;
   }
 }
 
-const saved = readStorage();
-let draft = saved?.draft ?? exampleDraft();
-let plan = saved?.plan?.version === 1 ? saved.plan : createPlan(prepareRequest(exampleDraft()).request);
-let appliedDraft = saved?.appliedDraft ?? JSON.stringify(exampleDraft());
+const trips = createTripStore(browserStorage());
+let activeTrip = null;
+let viewingConfirmed = false;
+let draft;
+let plan;
+let appliedDraft;
 let dayPage = 0;
 let editing = false;
 let undo = null;
 let errors = {};
 
 function save() {
-  try {
-    localStorage.setItem(storeKey, JSON.stringify({ draft, plan, appliedDraft }));
-    $('storage-notice').hidden = true;
-  } catch {
-    $('storage-notice').hidden = false;
-  }
+  if (!activeTrip || viewingConfirmed) return;
+  const saved = trips.saveDraft(activeTrip.id, { form: draft, plan, appliedDraft, undo });
+  if (saved) activeTrip = saved;
+  updateTripControls();
+  showStorageStatus();
 }
 
 function announce(message) {
   $('status').textContent = message;
+}
+
+function showStorageStatus() {
+  $('storage-notice').hidden = !trips.storageProblem;
 }
 
 document.querySelectorAll('[data-icon]').forEach((node) => {
@@ -205,7 +210,7 @@ function checkExistingErrors() {
 }
 
 function renderStale() {
-  $('stale-notice').hidden = JSON.stringify(draft) === appliedDraft;
+  $('stale-notice').hidden = !plan || viewingConfirmed || JSON.stringify(draft) === appliedDraft;
 }
 
 function onDraftChange() {
@@ -221,7 +226,7 @@ form.addEventListener('input', ({ target }) => {
   } else if (target.id === 'budget') {
     draft.budget = target.value;
     onDraftChange();
-    $('trip-summary').innerHTML = summaryMarkup(reviewPlan());
+    if (plan) $('trip-summary').innerHTML = summaryMarkup(reviewPlan());
   }
 });
 
@@ -249,8 +254,10 @@ form.addEventListener('change', ({ target }) => {
     draft[name] = checked ? [...draft[name], value] : draft[name].filter((item) => item !== value);
     if (name === 'mustVisit') updatePlaceCount();
   } else if (name === 'budget') {
-    const { overBudget } = reviewPlan();
-    if (overBudget) announce(`Lịch đang vượt ngân sách ${money(overBudget)} mỗi người.`);
+    if (plan) {
+      const { overBudget } = reviewPlan();
+      if (overBudget) announce(`Lịch đang vượt ngân sách ${money(overBudget)} mỗi người.`);
+    }
   } else {
     return;
   }
@@ -418,6 +425,15 @@ function slotMarkup(slot, opened) {
 }
 
 function renderPlan() {
+  $('empty-plan').hidden = Boolean(plan);
+  $('edit-plan').hidden = !plan || viewingConfirmed;
+  if (!plan) {
+    $('trip-summary').replaceChildren();
+    timeline.replaceChildren();
+    renderStale();
+    return;
+  }
+
   const review = reviewPlan();
   const opened = new Set(Array.from(timeline.querySelectorAll('details[open]'), (detail) => detail.dataset.detail));
   const grouped = Object.groupBy(review.slots, (slot) => slot.date);
@@ -486,5 +502,142 @@ timeline.addEventListener('click', (event) => {
   announce(`${actionText} Lịch hiện có ${review.stopCount} điểm.${flags ? ` Có ${flags} cảnh báo về giờ hoặc ngân sách.` : ''}`);
 });
 
-syncDraft();
-renderPlan();
+function tripHash(id, confirmed = false) {
+  return `#trip/${id}${confirmed ? '/confirmed' : ''}`;
+}
+
+function tripDates(trip) {
+  const { startDate, endDate } = trip.draft.form;
+  const first = Number.isInteger(dateIndex(startDate)) ? `${shortDate(startDate)}/${year(startDate)}` : '';
+  const last = Number.isInteger(dateIndex(endDate)) ? `${shortDate(endDate)}/${year(endDate)}` : '';
+  if (first && last) return first === last ? first : `${first} – ${last}`;
+  if (first) return `Đến ${first}`;
+  if (last) return `Rời ${last}`;
+  return 'Chưa chọn ngày';
+}
+
+function renderTripList() {
+  const allTrips = trips.list();
+  $('empty-trips').hidden = allTrips.length > 0;
+  $('trip-list').hidden = allTrips.length === 0;
+  $('trip-list').replaceChildren(...allTrips.map((trip) => {
+    const item = document.createElement('li');
+    const link = document.createElement('a');
+    link.className = 'trip-card';
+    link.href = tripHash(trip.id);
+    link.dataset.tripId = trip.id;
+    link.innerHTML = `<span class="section-icon">${icon('calendar')}</span>
+      <span class="trip-card-info"><strong></strong><span></span></span>
+      <span class="trip-card-status"></span>`;
+    link.querySelector('strong').textContent = trip.name;
+    link.querySelector('.trip-card-info > span').textContent = tripDates(trip);
+    const status = link.querySelector('.trip-card-status');
+    status.textContent = hasDraftChanges(trip) ? 'Đã chốt · Có nháp' : trip.confirmed ? 'Đã chốt' : 'Nháp';
+    if (trip.confirmed) status.classList.add('is-confirmed');
+    item.append(link);
+    return item;
+  }));
+}
+
+function updateTripControls() {
+  const { id, name, confirmed } = activeTrip;
+  const changed = hasDraftChanges(activeTrip);
+  $('trip-title').textContent = name;
+  $('version-links').hidden = !confirmed;
+  $('draft-link').href = tripHash(id);
+  $('confirmed-link').href = tripHash(id, true);
+  $('draft-link').setAttribute('aria-current', viewingConfirmed ? 'false' : 'page');
+  $('confirmed-link').setAttribute('aria-current', viewingConfirmed ? 'page' : 'false');
+  $('draft-changed').hidden = !changed;
+  $('confirm-plan').hidden = viewingConfirmed || !plan;
+  $('confirm-plan').disabled = Boolean(confirmed) && !changed;
+  $('confirm-label').textContent = confirmed ? 'Cập nhật lịch đã chốt' : 'Chốt lịch';
+  document.title = `${name} — NonLa Wander`;
+}
+
+function toggleRename(show) {
+  $('rename-form').hidden = !show;
+  $('rename-trip').setAttribute('aria-expanded', show);
+  if (show) {
+    $('trip-name').value = activeTrip.name;
+    $('trip-name').select();
+    $('trip-name').focus();
+  }
+}
+
+function renderRoute(focus = false) {
+  const previousId = activeTrip?.id;
+  const route = location.hash.match(/^#trip\/([a-z0-9-]+)(\/confirmed)?$/);
+  activeTrip = route ? trips.get(route[1]) : null;
+  viewingConfirmed = Boolean(route?.[2] && activeTrip?.confirmed);
+  $('trip-list-view').hidden = Boolean(activeTrip);
+  $('trip-header').hidden = !activeTrip;
+  $('trip-workspace').hidden = !activeTrip;
+  $('trips-link').setAttribute('aria-current', activeTrip ? 'false' : 'page');
+
+  if (activeTrip) {
+    if (route[2] && !viewingConfirmed) history.replaceState(null, '', tripHash(activeTrip.id));
+    const state = viewingConfirmed ? activeTrip.confirmed : activeTrip.draft;
+    ({ form: draft, plan, appliedDraft, undo } = structuredClone(state));
+    editing = false;
+    dayPage = 0;
+    errors = {};
+    toggleRename(false);
+    $('planner').hidden = viewingConfirmed;
+    $('trip-workspace').classList.toggle('confirmed-workspace', viewingConfirmed);
+    $('itinerary-title').textContent = viewingConfirmed ? 'Lịch đã chốt' : 'Lịch của bạn';
+    if (!viewingConfirmed) {
+      for (const detail of form.querySelectorAll('details[open]')) detail.open = false;
+      syncDraft();
+      renderErrors();
+    }
+    timeline.replaceChildren();
+    updateTripControls();
+    renderPlan();
+    if (focus) $('trip-title').focus();
+  } else {
+    if (route) history.replaceState(null, '', '#trips');
+    document.title = 'Lịch của tôi — NonLa Wander';
+    renderTripList();
+    if (focus) {
+      const previous = previousId && $('trip-list').querySelector(`[data-trip-id="${previousId}"]`);
+      (previous || $('trip-list-title')).focus();
+    }
+  }
+  showStorageStatus();
+}
+
+$('create-trip').addEventListener('click', () => {
+  const trip = trips.create();
+  location.hash = tripHash(trip.id);
+  announce('Đã tạo chuyến đi mới.');
+});
+
+$('rename-trip').addEventListener('click', () => toggleRename($('rename-form').hidden));
+$('trip-name').addEventListener('input', (event) => {
+  activeTrip = trips.rename(activeTrip.id, event.target.value) ?? activeTrip;
+  updateTripControls();
+  showStorageStatus();
+});
+$('rename-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  toggleRename(false);
+  $('rename-trip').focus();
+});
+
+$('confirm-plan').addEventListener('click', () => {
+  const wasConfirmed = Boolean(activeTrip.confirmed);
+  const saved = trips.confirm(activeTrip.id);
+  if (!saved) return;
+  activeTrip = saved;
+  location.hash = tripHash(activeTrip.id, true);
+  announce(wasConfirmed ? 'Đã cập nhật lịch đã chốt.' : 'Đã chốt lịch.');
+});
+
+document.querySelector('.skip-link').addEventListener('click', (event) => {
+  event.preventDefault();
+  $('main-content').focus();
+});
+window.addEventListener('hashchange', () => renderRoute(true));
+trips.migrateLegacy();
+renderRoute();

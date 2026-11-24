@@ -11,35 +11,63 @@
   <script src="/app.js" type="module"></script>
 </head>
 <body>
-  <a class="skip-link" href="#planner">Đến phần lên lịch</a>
+  <a class="skip-link" href="#main-content">Đến nội dung chính</a>
   <header class="site-header">
     <div class="wrapper header-inner">
-      <a class="wordmark" href="#" aria-label="NonLa Wander, về đầu trang">
+      <a class="wordmark" href="#trips" aria-label="NonLa Wander, về Lịch của tôi">
         <img src="/assets/nonla.svg" alt="" width="37" height="37">
         <span>NonLa <i>Wander</i></span>
       </a>
       <nav aria-label="Điều hướng chính">
-        <a href="#planner">Lên lịch</a>
-        <a href="#itinerary">Lịch của bạn</a>
+        <a id="trips-link" href="#trips">Lịch của tôi</a>
       </nav>
       <span class="demo-tag"><span data-icon="flask"></span>Bản demo</span>
     </div>
   </header>
 
-  <main class="wrapper">
-    <section class="hero" aria-labelledby="hero-title">
-      <div class="hero-copy">
-        <p class="eyebrow"><span data-icon="pin"></span>Cẩm nang đi bộ Hà Nội</p>
-        <h1 id="hero-title">Một vòng <em>Hà Nội.</em></h1>
-        <p>Xếp lịch dạo quanh Hồ Gươm và Phố cổ theo giờ rảnh và sở thích của bạn.</p>
+  <main id="main-content" class="wrapper" tabindex="-1">
+    <p id="storage-notice" class="storage-notice" role="status" hidden>Chưa thể lưu vào trình duyệt. Thay đổi chưa lưu chỉ có trong trang này.</p>
+    <section id="trip-list-view" aria-labelledby="trip-list-title">
+      <div class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow"><span data-icon="pin"></span>Cẩm nang đi bộ Hà Nội</p>
+          <h1 id="trip-list-title" tabindex="-1">Lịch của tôi</h1>
+          <p id="empty-trips">Bạn chưa có chuyến đi nào. Tạo một chuyến để bắt đầu lên lịch dạo Hà Nội.</p>
+          <button type="button" id="create-trip" class="primary-button create-trip"><span data-icon="plus"></span>Tạo chuyến đi</button>
+          <p class="helper">Chuyến đi được lưu trên trình duyệt này.</p>
+        </div>
+        <figure class="postcard">
+          <img src="/assets/ho-guom-xanh.webp" alt="Tranh minh họa Tháp Rùa bên Hồ Gươm" width="1000" height="667" fetchpriority="high">
+          <figcaption><span><span data-icon="pin"></span> Hồ Gươm, Hà Nội</span><span>Tranh minh họa</span></figcaption>
+        </figure>
       </div>
-      <figure class="postcard">
-        <img src="/assets/ho-guom-xanh.webp" alt="Tranh minh họa Tháp Rùa bên Hồ Gươm" width="1000" height="667" fetchpriority="high">
-        <figcaption><span><span data-icon="pin"></span> Hồ Gươm, Hà Nội</span><span>Tranh minh họa</span></figcaption>
-      </figure>
+      <ul id="trip-list" class="trip-list" aria-label="Chuyến đi đã lưu" hidden></ul>
     </section>
 
-    <div class="planner-layout">
+    <section id="trip-header" class="trip-header" aria-labelledby="trip-title" hidden>
+      <a class="back-link" href="#trips">Quay về Lịch của tôi</a>
+      <div class="trip-heading">
+        <h1 id="trip-title" tabindex="-1"></h1>
+        <button type="button" id="rename-trip" class="text-button" aria-controls="rename-form" aria-expanded="false"><span data-icon="edit"></span>Đổi tên</button>
+      </div>
+      <form id="rename-form" hidden>
+        <div class="field">
+          <label for="trip-name">Tên chuyến đi</label>
+          <div class="rename-actions">
+            <input id="trip-name" type="text" autocomplete="off">
+            <button class="text-button" type="submit">Xong</button>
+          </div>
+        </div>
+      </form>
+      <p class="helper">Nháp tự lưu trên trình duyệt này.</p>
+      <nav id="version-links" class="version-links" aria-label="Phiên bản lịch" hidden>
+        <a id="draft-link">Nháp</a>
+        <a id="confirmed-link">Bản đã chốt</a>
+        <span id="draft-changed" class="chip-count" hidden>Có thay đổi trong nháp</span>
+      </nav>
+    </section>
+
+    <div id="trip-workspace" class="planner-layout" hidden>
       <section id="planner" aria-labelledby="planner-title">
         <div class="section-heading">
           <div class="section-name"><span class="section-icon" data-icon="sliders"></span><h2 id="planner-title">Lên lịch đi chơi</h2></div>
@@ -122,7 +150,6 @@
 
           <div class="form-actions">
             <button type="submit" class="primary-button"><span data-icon="route"></span>Xếp lịch đi bộ</button>
-            <p class="helper" id="storage-notice" hidden>Trình duyệt đang chặn lưu trên thiết bị.</p>
           </div>
         </form>
       </section>
@@ -130,8 +157,12 @@
       <section id="itinerary" aria-labelledby="itinerary-title">
         <div class="section-heading itinerary-heading">
           <div class="section-name"><span class="section-icon" data-icon="route"></span><h2 id="itinerary-title" tabindex="-1">Lịch của bạn</h2></div>
-          <button id="edit-plan" type="button" class="text-button" aria-pressed="false"><span data-icon="edit"></span><span id="edit-label">Chỉnh sửa</span></button>
+          <div class="itinerary-actions">
+            <button id="edit-plan" type="button" class="text-button" aria-pressed="false" hidden><span data-icon="edit"></span><span id="edit-label">Chỉnh sửa</span></button>
+            <button id="confirm-plan" type="button" class="text-button" hidden><span data-icon="check"></span><span id="confirm-label">Chốt lịch</span></button>
+          </div>
         </div>
+        <p class="paper-panel helper" id="empty-plan">Chọn ngày và buổi, rồi bấm Xếp lịch đi bộ để tạo lịch cho chuyến này.</p>
         <div id="trip-summary"></div>
         <p class="small-notice" id="stale-notice" hidden>Form đã đổi. Xếp lại lịch để áp dụng các lựa chọn mới.</p>
         <div id="timeline"></div>
@@ -142,7 +173,7 @@
 
   <footer class="site-footer">
     <div class="wrapper footer-inner">
-      <a class="wordmark" href="#" aria-label="NonLa Wander, về đầu trang"><img src="/assets/nonla.svg" alt="" width="29" height="29"><span>NonLa <i>Wander</i></span></a>
+      <a class="wordmark" href="#trips" aria-label="NonLa Wander, về Lịch của tôi"><img src="/assets/nonla.svg" alt="" width="29" height="29"><span>NonLa <i>Wander</i></span></a>
       <p>Hồ Gươm · Phố cổ Hà Nội</p>
     </div>
   </footer>
