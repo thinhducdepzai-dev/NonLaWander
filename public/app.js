@@ -1,5 +1,6 @@
 import { areas, exampleDraft, periodById, periods, places, transports, vibes } from './data.js';
 import { icon } from './icons.js';
+import { renderLibrary } from './library.js';
 import { applyEdit, clock, createPlan, dateAt, dateIndex, inspectPlan, openingHours, prepareRequest, weekday } from './planner.js';
 import { createTripStore, hasDraftChanges } from './trips.js';
 
@@ -588,23 +589,30 @@ function toggleRename(show) {
   }
 }
 
-function renderRoute(focus = false) {
+function renderRoute(focus = false, previousHash = '') {
   const previousId = activeTrip?.id;
   const { hash } = location;
   const route = hash.match(/^#trip\/([a-z0-9-]+)(\/confirmed)?$/);
   activeTrip = route ? trips.get(route[1]) : null;
   const showProjects = !activeTrip && (hash === '#trips' || hash.startsWith('#trip/'));
-  const showHome = !activeTrip && !showProjects;
+  const showLibrary = /^#library(?:[/?]|$)/.test(hash);
+  const showHome = !activeTrip && !showProjects && !showLibrary;
   viewingConfirmed = Boolean(route?.[2] && activeTrip?.confirmed);
   document.body.classList.toggle('is-home', showHome);
+  document.body.classList.toggle('is-library', showLibrary);
   $('home-view').hidden = !showHome;
   $('trip-list-view').hidden = !showProjects;
   $('trip-header').hidden = !activeTrip;
   $('trip-workspace').hidden = !activeTrip;
-  $('site-footer').hidden = showHome;
+  $('site-footer').hidden = showHome || showLibrary;
   $('home-link').setAttribute('aria-current', showHome ? 'page' : 'false');
   $('trips-link').setAttribute('aria-current', showProjects ? 'page' : activeTrip ? 'location' : 'false');
+  $('library-link').setAttribute('aria-current', showLibrary ? (hash.startsWith('#library/') ? 'location' : 'page') : 'false');
   $('sidebar-recent').hidden = true;
+  if (!showLibrary) {
+    $('library-view').hidden = true;
+    $('library-detail').hidden = true;
+  }
 
   if (activeTrip) {
     if (route[2] && !viewingConfirmed) history.replaceState(null, '', tripHash(activeTrip.id));
@@ -634,6 +642,8 @@ function renderRoute(focus = false) {
       const previous = previousId && $('trip-list').querySelector(`[data-trip-id="${previousId}"]`);
       (previous || $('trip-list-title')).focus();
     }
+  } else if (showLibrary) {
+    renderLibrary(hash, focus, previousHash);
   } else {
     document.title = 'Home · NonLa Wander';
     renderHome();
@@ -680,6 +690,6 @@ document.querySelector('.skip-link').addEventListener('click', (event) => {
   event.preventDefault();
   $('main-content').focus();
 });
-window.addEventListener('hashchange', () => renderRoute(true));
+window.addEventListener('hashchange', (event) => renderRoute(true, new URL(event.oldURL).hash));
 trips.migrateLegacy();
 renderRoute();

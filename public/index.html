@@ -20,6 +20,7 @@
     <nav class="app-nav" aria-label="Điều hướng chính">
       <a id="home-link" href="#home" aria-current="page"><span data-icon="home"></span>Home</a>
       <a id="trips-link" href="#trips"><span data-icon="projects"></span>My Projects</a>
+      <a id="library-link" href="#library"><span data-icon="library"></span>Library</a>
     </nav>
     <div id="sidebar-recent" class="sidebar-recent" hidden>
       <p>Tiếp tục</p>
@@ -35,7 +36,10 @@
         <div class="home-intro">
           <h1 id="home-title" tabindex="-1">Lên lịch đi chơi <br>ở Hà Nội</h1>
           <p>Chọn những nơi bạn thích, xếp theo buổi rảnh và xem trước thời gian đi bộ, chi phí.</p>
-          <button type="button" id="home-create-trip" class="primary-button" data-create-trip><span data-icon="plus"></span>Tạo chuyến đi</button>
+          <div class="home-actions">
+            <button type="button" id="home-create-trip" class="primary-button" data-create-trip><span data-icon="plus"></span>Tạo chuyến đi</button>
+            <a id="home-library-link" class="home-library-link" href="#library">Khám phá thư viện <span aria-hidden="true">→</span></a>
+          </div>
         </div>
 
         <section id="home-recent" class="home-recent" aria-labelledby="home-recent-title" hidden>
@@ -76,6 +80,72 @@
           <li><div><strong>Chọn địa điểm</strong><p>Đánh dấu những điểm bạn muốn ghé trong danh sách địa điểm mẫu.</p></div></li>
           <li><div><strong>Xếp lịch</strong><p>Xếp lịch đi bộ rồi kiểm tra giờ ghé, đường đi và chi phí.</p></div></li>
         </ol>
+      </section>
+    </section>
+
+    <section id="library-view" class="library-view" aria-labelledby="library-title" hidden>
+      <header class="library-heading">
+        <h1 id="library-title" tabindex="-1">Thư viện địa điểm</h1>
+        <p>Khám phá các điểm ghé quanh Hồ Gươm và Phố cổ.</p>
+        <p class="library-demo"><span data-icon="info"></span>Dữ liệu demo. Chi phí và giờ mở cửa chỉ để tham khảo.</p>
+      </header>
+
+      <form id="library-filters" class="library-filters" role="search" aria-label="Tìm địa điểm">
+        <div class="library-search">
+          <label for="library-query">Tên địa điểm</label>
+          <div class="library-search-field">
+            <span data-icon="search"></span>
+            <input id="library-query" type="search" placeholder="Ví dụ: Đền Ngọc Sơn" autocomplete="off">
+          </div>
+        </div>
+        <div class="library-category">
+          <label for="library-category">Nhóm địa điểm</label>
+          <select id="library-category"><option value="">Tất cả nhóm</option></select>
+        </div>
+        <button type="reset" id="library-reset" class="library-reset" disabled>Xóa bộ lọc</button>
+      </form>
+
+      <section class="library-results" aria-labelledby="library-results-title">
+        <div class="library-results-heading">
+          <h2 id="library-results-title">Địa điểm</h2>
+          <p id="library-result-count" role="status" aria-atomic="true"></p>
+        </div>
+        <p id="library-empty" class="library-empty" hidden>Không tìm thấy địa điểm phù hợp. Hãy thử tên khác hoặc xóa bộ lọc.</p>
+        <ul id="library-places" class="library-places" role="list"></ul>
+      </section>
+
+      <template id="library-place-template">
+        <li>
+          <a class="library-place">
+            <span class="library-place-icon"></span>
+            <div class="library-place-info">
+              <h3></h3>
+              <p class="library-place-meta"></p>
+            </div>
+            <span class="library-place-price"></span>
+            <span class="library-place-next" aria-hidden="true">→</span>
+          </a>
+        </li>
+      </template>
+    </section>
+
+    <section id="library-detail" class="library-view" aria-labelledby="library-detail-title" hidden>
+      <a id="library-back" class="back-link" href="#library"><span aria-hidden="true">←</span> Quay về thư viện</a>
+      <header class="library-heading">
+        <p id="library-detail-category" class="library-detail-category"></p>
+        <h1 id="library-detail-title" tabindex="-1"></h1>
+        <p id="library-detail-description"></p>
+        <p id="library-detail-demo" class="library-demo"><span data-icon="info"></span>Dữ liệu demo. Chi phí và giờ mở cửa chỉ để tham khảo.</p>
+      </header>
+      <section id="library-detail-content" class="library-detail-content" aria-labelledby="library-detail-info-title">
+        <h2 id="library-detail-info-title">Thông tin ghé thăm</h2>
+        <dl>
+          <div><dt>Khu vực</dt><dd id="library-detail-area"></dd></div>
+          <div><dt>Chi phí ước tính / người</dt><dd id="library-detail-cost"></dd></div>
+          <div><dt>Thời lượng gợi ý</dt><dd id="library-detail-duration"></dd></div>
+          <div><dt>Giờ mở cửa tham khảo</dt><dd id="library-detail-hours"></dd></div>
+        </dl>
+        <p id="library-detail-note" class="library-detail-note"></p>
       </section>
     </section>
 
