@@ -1,7 +1,7 @@
-import { areas, exampleDraft, periodById, periods, places, transports, vibes } from './data.js';
+import { areas, exampleDraft, periodById, periods, placeById, places, transports, vibes } from './data.js';
 import { icon } from './icons.js';
 import { getLibraryReturn, renderLibrary, setupLibraryAdd } from './library.js';
-import { applyEdit, clock, createPlan, dateAt, dateIndex, hasKnownCost, inspectPlan, openingHours, prepareRequest, weekday } from './planner.js';
+import { applyEdit, clock, createPlan, dateAt, dateIndex, hasKnownCost, inspectPlan, moveDestinations, openingHours, prepareRequest, weekday } from './planner.js';
 import { createTripStore, hasDraftChanges } from './trips.js';
 
 const $ = (id) => document.getElementById(id);
@@ -34,6 +34,9 @@ let undo = null;
 let errors = {};
 let libraryReturn = null;
 let addedVisitNotice = null;
+let moveSelection = null;
+let moveFeedback = null;
+let draggedVisit = null;
 
 function save() {
   if (!activeTrip || viewingConfirmed) return;
@@ -266,6 +269,7 @@ form.addEventListener('change', ({ target }) => {
   }
   checkExistingErrors();
   onDraftChange();
+  if (editing && (name === 'startDate' || name === 'endDate' || dataset.period)) renderPlan();
 });
 
 days.addEventListener('click', (event) => {
@@ -331,6 +335,7 @@ form.addEventListener('submit', (event) => {
   appliedDraft = JSON.stringify(draft);
   editing = false;
   undo = null;
+  clearMove();
   onDraftChange();
   renderPlan();
   const review = reviewPlan();
@@ -372,12 +377,52 @@ function summaryMarkup(review) {
   ${review.missing.length ? warning(`Điểm muốn ghé chưa có trong lịch: ${review.missing.map((place) => place.name).join(', ')}. Thử đổi khung giờ hoặc ngân sách, hay hoàn tác nếu vừa bỏ điểm.`) : ''}`;
 }
 
-function stopMarkup(slot, stop, index, opened) {
+function slotName(slot) {
+  return `${periodById[slot.period].label} ${shortDate(slot.date)}/${year(slot.date)}`;
+}
+
+function placementText(slot) {
+  const last = slot.stops.at(-1);
+  return last ? `Đặt ở cuối buổi, sau ${placeById[last.placeId].name}.` : 'Buổi đang trống. Lượt ghé sẽ ở vị trí đầu tiên.';
+}
+
+function moveForm(slot, stop, destinations) {
+  if (moveSelection?.stopId !== stop.id || moveSelection.slotId !== slot.id) return '';
+  const options = destinations.filter(({ id }) => id !== slot.id);
+  const selected = options.find(({ id }) => id === moveSelection.toSlotId) ?? options[0];
+  if (!selected) return '';
+
+  return `<form id="timeline-move-form" class="timeline-move-form">
+    <label for="timeline-move-slot">Buổi đích</label>
+    <select id="timeline-move-slot" aria-describedby="timeline-move-position">${options.map((item) =>
+      `<option value="${item.id}" ${item.id === selected.id ? 'selected' : ''}>${slotName(item)} · ${clock(item.start)}–${clock(item.end)}</option>`).join('')}</select>
+    <p id="timeline-move-position" role="status">${placementText(selected)}</p>
+    <div class="timeline-move-actions">
+      <button type="submit" class="primary-button">Chuyển lượt ghé</button>
+      <button type="button" id="timeline-move-cancel" class="text-button">Hủy</button>
+    </div>
+  </form>`;
+}
+
+function moveErrorMarkup() {
+  return `<div id="timeline-move-error" class="error-box" role="alert" tabindex="-1">
+    <strong>Chưa chuyển lượt ghé. Bản nháp vẫn giữ nguyên.</strong>
+    <ul>${moveFeedback.messages.map((message) => `<li>${message}</li>`).join('')}</ul>
+  </div>`;
+}
+
+function dropMarkup(slot, eligible, stop) {
+  const label = stop ? `Thả trước ${stop.place.name}` : slot.stops.length ? 'Thả ở cuối buổi' : 'Thả vào buổi trống';
+  return `<li class="timeline-drop${eligible ? ' timeline-drop-target' : ''}" data-drop-slot="${slot.id}" data-before-stop="${stop?.id ?? ''}" aria-hidden="true">${label}</li>`;
+}
+
+function stopMarkup(slot, stop, index, opened, destinations) {
   const { place, arrival, departure, walkToNext, wait, issues } = stop;
   const hours = openingHours(place, slot.date)
     .map((window) => `${window.start}–${window.end}`).join(', ') || (place.hours?.length ? 'Đóng cửa hôm đó' : 'Chưa có giờ mở cửa');
   const area = areas.find((item) => item.id === place.area).label;
-  return `<li class="stop">
+  const showMove = moveSelection?.stopId === stop.id && moveSelection.slotId === slot.id;
+  return `<li class="stop" data-visit="${stop.id}">
     <div class="stop-row">
       <time class="stop-time" aria-label="Đến lúc ${clock(arrival)}">${clock(arrival)}</time>
       <span class="stop-icon tone-${place.icon}">${icon(place.icon)}</span>
@@ -398,10 +443,14 @@ function stopMarkup(slot, stop, index, opened) {
     ${issues.map((issue) => warning(stopIssue(issue))).join('')}
     ${wait ? `<p class="stop-wait">${icon('clock')} ${stop.fixedStart === undefined ? 'Chờ mở cửa' : 'Chờ đến giờ cố định'} ${wait} phút</p>` : ''}
     ${editing ? `<div class="stop-actions" role="group" aria-label="Sửa ${place.name}">
+      <span class="timeline-grip" draggable="true" data-drag-slot="${slot.id}" data-drag-stop="${stop.id}" aria-hidden="true" title="Kéo ${place.name}">${icon('grip')} Kéo</span>
       ${editButton('up', 'Lên', slot, stop, index === 0)}
       ${editButton('down', 'Xuống', slot, stop, index === slot.stops.length - 1)}
       ${editButton('remove', 'Bỏ', slot, stop)}
+      ${destinations.some(({ id }) => id !== slot.id) ? `<button type="button" data-action="transfer" data-slot="${slot.id}" data-stop="${stop.id}" aria-label="Chuyển ${place.name} sang buổi khác" aria-expanded="${showMove}" ${showMove ? 'aria-controls="timeline-move-form"' : ''}>${icon('route')}Chuyển sang buổi…</button>` : ''}
     </div>` : ''}
+    ${moveFeedback?.stopId === stop.id && moveFeedback.slotId === slot.id ? moveErrorMarkup() : ''}
+    ${editing ? moveForm(slot, stop, destinations) : ''}
     ${walkToNext ? `<p class="walk-leg">${icon('walk')} ${walkToNext} phút đi bộ đến điểm kế</p>` : ''}
   </li>`;
 }
@@ -418,19 +467,23 @@ function editButton(action, label, slot, stop, disabled = false) {
   </button>`;
 }
 
-function slotMarkup(slot, opened) {
+function slotMarkup(slot, opened, destinations) {
   const period = periodById[slot.period];
   let shortage = '';
   if (!slot.stops.length) shortage = 'Buổi này chưa có điểm ghé.';
   else if (slot.freeMinutes >= 45) shortage = `Dữ liệu demo còn để trống ${slot.freeMinutes} phút trong buổi này.`;
 
+  const eligible = destinations.some(({ id }) => id === slot.id);
+  const stops = slot.stops.map((stop, index) =>
+    `${editing ? dropMarkup(slot, eligible, stop) : ''}${stopMarkup(slot, stop, index, opened, destinations)}`).join('');
   return `<section class="timeline-slot" aria-labelledby="label-${slot.id}">
     <div class="timeline-slot-heading">
       <h4 id="label-${slot.id}">${icon(period.icon)}${period.label}</h4>
       <span>${clock(slot.start)}–${clock(slot.end)}</span>
     </div>
-    ${slot.stops.length ? `<ol class="stops">${slot.stops.map((stop, index) => stopMarkup(slot, stop, index, opened)).join('')}</ol>` : ''}
-    ${shortage ? warning(shortage) : slot.freeMinutes > 0 ? `<p class="slot-slack">Còn ${slot.freeMinutes} phút linh động</p>` : ''}
+    ${stops || editing ? `<ol class="stops" ${!stops ? 'aria-hidden="true"' : ''}>${stops}${editing ? dropMarkup(slot, eligible) : ''}</ol>` : ''}
+    ${shortage ? warning(shortage) : ''}
+    ${slot.freeMinutes > 0 && (!shortage || !slot.stops.length) ? `<p class="slot-slack">Còn ${slot.freeMinutes} phút linh động</p>` : ''}
     ${undo?.slotId === slot.id ? `<div class="undo-area">
       <span>Đã bỏ điểm khỏi lịch.</span>
       <button class="text-button" type="button" id="undo-edit">Hoàn tác</button>
@@ -441,6 +494,7 @@ function slotMarkup(slot, opened) {
 function renderPlan() {
   $('empty-plan').hidden = Boolean(plan);
   $('edit-plan').hidden = !plan || viewingConfirmed;
+  $('timeline-edit-hint').hidden = !editing;
   if (!plan) {
     $('trip-summary').replaceChildren();
     timeline.replaceChildren();
@@ -450,7 +504,11 @@ function renderPlan() {
 
   const review = reviewPlan();
   const opened = new Set(Array.from(timeline.querySelectorAll('details[open]'), (detail) => detail.dataset.detail));
-  const grouped = Object.groupBy(review.slots, (slot) => slot.date);
+  const destinations = editing ? moveDestinations(plan, draft) : [];
+  const existing = new Set(review.slots.map(({ id }) => id));
+  const added = destinations.filter(({ id }) => !existing.has(id)).map((slot) => ({ ...slot, freeMinutes: slot.end - slot.start }));
+  const visibleSlots = [...review.slots, ...added].sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start);
+  const grouped = Object.groupBy(visibleSlots, (slot) => slot.date);
   $('edit-plan').setAttribute('aria-pressed', editing);
   $('edit-plan').disabled = !review.stopCount && !editing;
   $('edit-label').textContent = editing ? 'Xong' : 'Chỉnh sửa';
@@ -464,22 +522,98 @@ function renderPlan() {
           <p>Tháng ${Number(date.slice(5, 7))} · ${slots.length} buổi</p>
         </div>
       </div>
-      ${slots.map((slot) => slotMarkup(slot, opened)).join('')}
+      ${slots.map((slot) => slotMarkup(slot, opened, destinations)).join('')}
     </article>`).join('');
+  if (moveFeedback && !$('timeline-move-error')) timeline.insertAdjacentHTML('afterbegin', moveErrorMarkup());
   renderStale();
 }
 
 $('edit-plan').addEventListener('click', () => {
   editing = !editing;
+  clearMove();
   renderPlan();
-  announce(editing ? 'Đang chỉnh sửa. Có thể chuyển lên, xuống hoặc bỏ điểm trong cùng buổi.' : 'Đã đóng chế độ chỉnh sửa.');
+  announce(editing ? 'Đang chỉnh sửa. Có thể đổi thứ tự, chuyển sang buổi khác hoặc bỏ lượt ghé.' : 'Đã đóng chế độ chỉnh sửa.');
 });
 
+function finishDrag() {
+  draggedVisit = null;
+  timeline.classList.remove('is-dragging');
+  timeline.querySelector('.timeline-drop-active')?.classList.remove('timeline-drop-active');
+  timeline.querySelector('.timeline-drag-source')?.classList.remove('timeline-drag-source');
+  timeline.querySelector('.timeline-drag-origin')?.classList.remove('timeline-drag-origin');
+}
+
+function clearMove() {
+  moveSelection = null;
+  moveFeedback = null;
+  finishDrag();
+}
+
+function moveConflictText(issue) {
+  const slot = slotName(issue.slot);
+  switch (issue.code) {
+    case 'fixed-date': return `${slot} không cùng ngày với giờ cố định ${clock(issue.start)} của ${issue.placeName} ở buổi ${slotName(issue.source)}.`;
+    case 'overlap': return `Khung giờ buổi ${slot} trùng với buổi ${slotName(issue.other)} đã có trong nháp.`;
+    case 'fixed': return `Ở buổi ${slot}, sớm nhất có thể đến ${issue.placeName} lúc ${clock(issue.ready)}, sau giờ cố định ${clock(issue.start)}.`;
+    case 'window': return `Ở buổi ${slot}, ${issue.placeName} dự kiến kết thúc lúc ${clock(issue.departure)}, sau giờ kết thúc buổi ${clock(issue.end)}.`;
+  }
+}
+
+function performMove(command, action) {
+  if (!editing || viewingConfirmed) return;
+  const result = trips.moveVisit(activeTrip.id, command);
+  if (result.unchanged) return;
+  if (!result.trip) {
+    moveFeedback = {
+      ...command,
+      messages: result.conflicts?.map(moveConflictText) ?? ['Vị trí hoặc lượt ghé đã thay đổi. Hãy tải lại bản nháp rồi thử lại.'],
+    };
+    renderPlan();
+    $('timeline-move-error').focus();
+    return;
+  }
+
+  const formChanged = JSON.stringify(draft) !== JSON.stringify(result.trip.draft.form);
+  activeTrip = result.trip;
+  ({ form: draft, plan, appliedDraft, undo } = activeTrip.draft);
+  clearMove();
+  if (formChanged) syncDraft();
+  updateTripControls();
+  showStorageStatus();
+  renderPlan();
+
+  const slot = plan.slots.find((item) => item.id === (command.toSlotId ?? command.slotId));
+  const place = placeById[slot.stops.find((stop) => stop.id === command.stopId).placeId];
+  if (action) {
+    const controls = [...timeline.querySelectorAll(`[data-stop="${command.stopId}"]:enabled`)];
+    (controls.find((button) => button.dataset.action === action) ?? controls[0])?.focus({ preventScroll: true });
+  } else timeline.querySelector(`[data-detail="${command.stopId}"] summary`)?.focus();
+  const review = reviewPlan();
+  const warnings = review.slots.flatMap((item) => item.stops.flatMap((stop) => stop.issues)).length + Number(review.overBudget > 0);
+  const message = slot.id === command.slotId ? 'Đã đổi thứ tự.' : `Đã chuyển ${place.name} sang buổi ${slotName(slot)}.`;
+  announce(`${message} Lịch hiện có ${review.stopCount} điểm.${warnings ? ` Có ${warnings} cảnh báo về giờ hoặc ngân sách.` : ''}`);
+}
+
+function toggleMoveForm(control) {
+  const { slot, stop } = control.dataset;
+  const opened = moveSelection?.slotId === slot && moveSelection.stopId === stop;
+  clearMove();
+  if (!opened) moveSelection = { slotId: slot, stopId: stop };
+  renderPlan();
+  ($('timeline-move-slot') ?? timeline.querySelector(`[data-action="transfer"][data-stop="${stop}"]`))?.focus();
+}
+
 timeline.addEventListener('click', (event) => {
+  if (event.target.closest('#timeline-move-cancel')) {
+    const trigger = timeline.querySelector('[data-action="transfer"][aria-expanded="true"]');
+    if (trigger) toggleMoveForm(trigger);
+    return;
+  }
   if (event.target.closest('#undo-edit')) {
     const { plan: previous, stopId } = undo;
     plan = previous;
     undo = null;
+    clearMove();
     save();
     renderPlan();
     const restored = timeline.querySelector(`[data-stop="${stopId}"][data-action="remove"]`);
@@ -488,33 +622,82 @@ timeline.addEventListener('click', (event) => {
     return;
   }
   const control = event.target.closest('[data-action]');
-  if (!control) return;
+  if (!control || !editing) return;
   const { action, slot: slotId, stop: stopId } = control.dataset;
+  if (action === 'transfer') {
+    toggleMoveForm(control);
+    return;
+  }
   const slot = plan.slots.find((item) => item.id === slotId);
   const oldIndex = slot.stops.findIndex((stop) => stop.id === stopId);
-  if (action === 'remove') undo = { slotId, stopId, plan };
-  const command = action === 'remove'
-    ? { type: 'remove', slotId, stopId }
-    : { type: 'move', slotId, stopId, toIndex: oldIndex + (action === 'up' ? -1 : 1) };
-  plan = applyEdit(plan, command);
-  if (action !== 'remove') undo = null;
-
+  if (action !== 'remove') {
+    performMove({ slotId, stopId, toIndex: oldIndex + (action === 'up' ? -1 : 1) }, action);
+    return;
+  }
+  clearMove();
+  undo = { slotId, stopId, plan };
+  plan = applyEdit(plan, { type: 'remove', slotId, stopId });
   save();
   renderPlan();
-  if (action === 'remove') {
-    $('undo-edit').focus();
-  } else {
-    const controls = [...timeline.querySelectorAll(`[data-stop="${stopId}"]:enabled`)];
-    const next = controls.find((button) => button.dataset.action === action) ?? controls[0];
-    next?.focus({ preventScroll: true });
-  }
-
+  $('undo-edit').focus();
   const review = reviewPlan();
   const issues = review.slots.flatMap((item) => item.stops.flatMap((stop) => stop.issues)).length;
   const flags = issues + Number(review.overBudget > 0);
-  const actionText = action === 'remove' ? 'Đã bỏ điểm.' : 'Đã đổi thứ tự.';
-  announce(`${actionText} Lịch hiện có ${review.stopCount} điểm.${flags ? ` Có ${flags} cảnh báo về giờ hoặc ngân sách.` : ''}`);
+  announce(`Đã bỏ điểm. Lịch hiện có ${review.stopCount} điểm.${flags ? ` Có ${flags} cảnh báo về giờ hoặc ngân sách.` : ''}`);
 });
+
+timeline.addEventListener('change', ({ target }) => {
+  if (target.id !== 'timeline-move-slot' || !moveSelection) return;
+  moveSelection.toSlotId = target.value;
+  moveFeedback = null;
+  $('timeline-move-error')?.remove();
+  const slot = moveDestinations(plan, draft).find((item) => item.id === target.value);
+  if (slot) $('timeline-move-position').textContent = placementText(slot);
+});
+
+timeline.addEventListener('submit', (event) => {
+  if (event.target.id !== 'timeline-move-form' || !moveSelection) return;
+  event.preventDefault();
+  moveSelection.toSlotId = $('timeline-move-slot').value;
+  performMove(moveSelection);
+});
+
+timeline.addEventListener('dragstart', (event) => {
+  const handle = event.target.closest('[data-drag-stop]');
+  if (!handle || !editing || viewingConfirmed) return;
+  draggedVisit = { slotId: handle.dataset.dragSlot, stopId: handle.dataset.dragStop };
+  const row = handle.closest('.stop');
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('application/x-nonla-visit', draggedVisit.stopId);
+  event.dataTransfer.setDragImage(row.querySelector('.stop-row'), 16, 22);
+  row.classList.add('timeline-drag-source');
+  handle.closest('.timeline-slot').classList.add('timeline-drag-origin');
+  timeline.classList.add('is-dragging');
+});
+
+timeline.addEventListener('dragover', (event) => {
+  if (!draggedVisit) return;
+  const zone = event.target.closest('[data-drop-slot]');
+  timeline.querySelector('.timeline-drop-active')?.classList.remove('timeline-drop-active');
+  if (!zone) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  zone.classList.add('timeline-drop-active');
+});
+
+timeline.addEventListener('dragleave', (event) => {
+  event.target.closest('.timeline-drop-active')?.classList.remove('timeline-drop-active');
+});
+
+timeline.addEventListener('drop', (event) => {
+  const zone = event.target.closest('[data-drop-slot]');
+  if (!zone || !draggedVisit) return;
+  event.preventDefault();
+  const command = { ...draggedVisit, toSlotId: zone.dataset.dropSlot, beforeStopId: zone.dataset.beforeStop };
+  finishDrag();
+  performMove(command);
+});
+timeline.addEventListener('dragend', finishDrag);
 
 function tripHash(id, confirmed = false, returnHref) {
   const path = `#trip/${id}${confirmed ? '/confirmed' : ''}`;
@@ -635,6 +818,7 @@ function renderRoute(focus = false, previousHash = '') {
     const state = viewingConfirmed ? activeTrip.confirmed : activeTrip.draft;
     ({ form: draft, plan, appliedDraft, undo } = structuredClone(state));
     editing = false;
+    clearMove();
     dayPage = 0;
     errors = !viewingConfirmed && libraryReturn?.place ? prepareRequest(draft).errors ?? {} : {};
     toggleRename(false);

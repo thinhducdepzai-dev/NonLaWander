@@ -598,6 +598,26 @@ button, .choice > span, .stop-chevron { transition: background-color 145ms ease,
 .stop-actions button:hover:not(:disabled) { background: var(--accent-soft); }
 .stop-actions button[data-action="remove"] { color: var(--accent-strong); }
 .stop-actions svg { width: .89rem; height: .89rem; }
+.stop-actions button[aria-expanded="true"] { border-color: var(--green); background: var(--green-soft); color: var(--green); }
+.timeline-edit-hint { margin-top: .6rem; color: var(--muted); font-size: .84rem; }
+.timeline-grip, .timeline-drop, .timeline-drag-hint { display: none; }
+.timeline-move-form { display: grid; gap: .45rem; margin: .55rem 0; padding: .65rem; border: 1px solid var(--line); border-radius: var(--small-radius); background: var(--paper); font-size: .875rem; }
+.timeline-move-form label { font-weight: 700; }
+.timeline-move-form select { width: 100%; min-width: 0; min-height: 44px; padding: .35rem .5rem; border: 1px solid var(--control-line); border-radius: var(--small-radius); background: var(--card); color: var(--ink); font: inherit; cursor: pointer; }
+.timeline-move-form p { color: var(--muted); }
+.timeline-move-actions { display: flex; flex-wrap: wrap; gap: .45rem; }
+.timeline-move-actions .primary-button { width: auto; min-height: 44px; padding: .48rem .7rem; font-size: .875rem; }
+#timeline-move-error { margin-block: .55rem; }
+
+@media (hover: hover) and (pointer: fine) {
+  .timeline-drag-hint { display: inline; }
+  .timeline-grip { display: inline-flex; align-items: center; gap: .18rem; min-height: 44px; padding: .22rem .38rem; border: 1px dashed var(--control-line); border-radius: var(--small-radius); color: var(--green); font-size: .8rem; font-weight: 700; cursor: grab; user-select: none; }
+  .timeline-grip:active { cursor: grabbing; }
+  .is-dragging :is(.timeline-drop-target, .timeline-drag-origin .timeline-drop) { display: block; min-height: 30px; margin-block: .3rem; padding: .25rem .5rem; border: 1px dashed var(--green); border-radius: var(--small-radius); background: var(--card); color: var(--green); font-size: .75rem; overflow-wrap: anywhere; }
+  .is-dragging .timeline-drop-active { border: 2px solid var(--dashboard-green); background: var(--dashboard-mist); font-weight: 750; }
+  .is-dragging .timeline-drag-source { opacity: .65; }
+}
+
 .undo-area { display: flex; justify-content: space-between; align-items: center; gap: .5rem; margin-top: .55rem; padding: .35rem .55rem; background: var(--green-soft); border-radius: var(--small-radius); color: var(--green); font-size: .81rem; }
 .demo-note { display: flex; gap: .45rem; padding: .65rem .12rem; margin-top: .35rem; color: var(--muted); font-size: .83rem; }
 .demo-note svg { margin-top: .1rem; width: 1rem; height: 1rem; color: var(--accent); }

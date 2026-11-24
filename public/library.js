@@ -187,7 +187,11 @@ export function setupLibraryAdd({ trips, createTrip, tripHash, showAdded }) {
     tripSelect.replaceChildren(...available.map((trip) => new Option(trip.name, trip.id)));
     if (available.some((trip) => trip.id === selectedTrip)) tripSelect.value = selectedTrip;
     $('library-add-fields').hidden = !available.length;
-    $('library-add-create').hidden = !!available.length;
+    const create = $('library-add-create');
+    create.hidden = false;
+    create.textContent = available.length ? 'Tạo chuyến mới' : 'Tạo chuyến đi';
+    create.classList.toggle('primary-button', !available.length);
+    create.classList.toggle('text-button', !!available.length);
     renderSlots(selectedSlot);
   }
 

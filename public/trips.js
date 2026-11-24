@@ -1,5 +1,5 @@
 import { areas, periodById, placeById, transports, vibes } from './data.js';
-import { appendVisit, dateIndex, prepareRequest } from './planner.js';
+import { appendVisit, dateIndex, moveVisit, prepareRequest } from './planner.js';
 
 export const legacyStorageKey = 'nonla-wander-v1';
 export const tripStoragePrefix = 'nonla-wander-v2:';
@@ -210,6 +210,21 @@ export function createTripStore(storage) {
     return { trip: write({ ...trip, draft }) };
   }
 
+  function moveDraftVisit(id, command) {
+    const trip = get(id);
+    if (!trip?.draft.plan) return { error: 'trip' };
+    const result = moveVisit(trip.draft.plan, command, trip.draft.form);
+    if (!result.plan) return result;
+    if (result.plan === trip.draft.plan) return { unchanged: true };
+
+    const draft = { ...trip.draft, plan: result.plan, undo: null };
+    if (result.plan.request !== trip.draft.plan.request &&
+        JSON.stringify(result.plan.request) === JSON.stringify(prepareRequest(draft.form).request)) {
+      draft.appliedDraft = JSON.stringify(draft.form);
+    }
+    return { trip: write({ ...trip, draft }) };
+  }
+
   function confirm(id) {
     const trip = get(id);
     if (!trip?.draft.plan) return null;
@@ -217,7 +232,7 @@ export function createTripStore(storage) {
   }
 
   return {
-    list, get, create, rename, saveDraft, addVisit, confirm, migrateLegacy,
+    list, get, create, rename, saveDraft, addVisit, moveVisit: moveDraftVisit, confirm, migrateLegacy,
     get storageProblem() { return readFailed || unsaved.size > 0; },
   };
 }

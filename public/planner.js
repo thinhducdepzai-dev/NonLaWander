@@ -29,7 +29,7 @@ export function clock(value) {
   return [Math.floor(value / 60), value % 60].map((part) => String(part).padStart(2, '0')).join(':');
 }
 
-export function prepareRequest(draft) {
+function prepareSlots(draft) {
   const errors = {};
   const first = dateIndex(draft.startDate);
   const last = dateIndex(draft.endDate);
@@ -66,7 +66,11 @@ export function prepareRequest(draft) {
     }
     if (!slots.length) errors.sessions = 'Chọn ít nhất một buổi để xếp lịch.';
   }
+  return { slots, errors };
+}
 
+export function prepareRequest(draft) {
+  const { slots, errors } = prepareSlots(draft);
   const budget = Number(draft.budget);
   if (String(draft.budget).trim() === '' || !Number.isSafeInteger(budget) || budget < 0) {
     errors.budget = 'Nhập tổng ngân sách từ 0 ₫ cho mỗi người.';
@@ -223,22 +227,99 @@ function planCosts(slots, budget) {
   return { total, missingCostCount, overBudget: Math.max(0, total - budget) };
 }
 
-// Lệnh dùng ID ổn định, để UI kéo thả hoặc câu lệnh có thể dùng cùng mô hình.
-export function applyEdit(plan, command) {
-  const slot = plan.slots.find((item) => item.id === command.slotId);
-  const sourceIndex = slot?.stops.findIndex((stop) => stop.id === command.stopId);
-  if (sourceIndex === undefined || sourceIndex < 0) return plan;
+function slotOverlap(first, second) {
+  return first.date === second.date && first.start < second.end && second.start < first.end;
+}
 
-  const stops = slot.stops.slice();
-  const [stop] = stops.splice(sourceIndex, 1);
-  if (command.type === 'move') {
-    const index = command.toIndex;
-    if (!Number.isInteger(index) || index < 0 || index > stops.length) return plan;
-    stops.splice(index, 0, stop);
-  } else if (command.type !== 'remove') {
-    return plan;
+function sortedSlots(slots) {
+  return slots.toSorted((a, b) => a.date.localeCompare(b.date) || a.start - b.start);
+}
+
+function requestWithSlots(request, slots) {
+  const startDate = slots[0].date < request.startDate ? slots[0].date : request.startDate;
+  const lastDate = slots.at(-1).date;
+  return {
+    ...request, startDate,
+    endDate: lastDate > request.endDate ? lastDate : request.endDate,
+    slots: slots.map(({ id, date, period, start, end }) => ({ id, date, period, start, end })),
+  };
+}
+
+function blockingIssues(slot) {
+  return schedule(slot).stops.flatMap((stop) => stop.issues.filter(({ code }) => code !== 'opening').map((issue) => ({
+    ...issue, slot, stopId: stop.id, placeName: stop.place.name, departure: stop.departure,
+  })));
+}
+
+export function moveDestinations(plan, form) {
+  const { slots, errors } = prepareSlots(form);
+  const existing = new Map(plan.slots.map((slot) => [slot.id, slot]));
+  const available = slots.filter(({ id }) => !errors[`start-${id}`] && !errors[`end-${id}`]);
+  return sortedSlots(available.map((slot) => existing.get(slot.id) ?? { ...slot, stops: [] }));
+}
+
+function worsenedIssue(issue, previous) {
+  const old = previous.find((item) => item.slot.id === issue.slot.id && item.stopId === issue.stopId && item.code === issue.code);
+  if (!old) return true;
+  return issue.code === 'fixed' ? issue.ready > old.ready : issue.departure > old.departure;
+}
+
+export function moveVisit(plan, command, form) {
+  const { slotId, stopId, toSlotId = slotId, beforeStopId, toIndex } = command;
+  const source = plan.slots.find((slot) => slot.id === slotId);
+  const sourceIndex = source?.stops.findIndex((stop) => stop.id === stopId) ?? -1;
+  if (sourceIndex < 0) return { error: 'source' };
+
+  const existingTarget = plan.slots.find((slot) => slot.id === toSlotId);
+  const target = form && toSlotId !== slotId
+    ? moveDestinations(plan, form).find((slot) => slot.id === toSlotId)
+    : existingTarget;
+  if (!target) return { error: 'target' };
+
+  const sameSlot = source === target;
+  const stop = source.stops[sourceIndex];
+  if (sameSlot && beforeStopId === stop.id) return { plan };
+  const remaining = source.stops.toSpliced(sourceIndex, 1);
+  const destinationStops = sameSlot ? remaining : target.stops;
+  const index = beforeStopId ? destinationStops.findIndex((item) => item.id === beforeStopId) : toIndex ?? destinationStops.length;
+  if (!Number.isInteger(index) || index < 0 || index > destinationStops.length) return { error: 'position' };
+  if (sameSlot && index === sourceIndex) return { plan };
+
+  const nextTarget = { ...target, stops: destinationStops.toSpliced(index, 0, stop) };
+  const nextSource = { ...source, stops: remaining };
+  const conflicts = [];
+  if (stop.fixedStart !== undefined && source.date !== target.date) {
+    conflicts.push({ code: 'fixed-date', slot: target, source, start: stop.fixedStart, placeName: placeById[stop.placeId].name });
+  }
+  if (!existingTarget) {
+    for (const slot of plan.slots.filter((item) => slotOverlap(target, item))) {
+      conflicts.push({ code: 'overlap', slot: target, other: slot });
+    }
   }
 
+  const before = (sameSlot ? [source] : [source, target]).flatMap(blockingIssues);
+  const after = (sameSlot ? [nextTarget] : [nextSource, nextTarget]).flatMap(blockingIssues);
+  // Reordering within a session keeps its existing end-time warning behavior.
+  conflicts.push(...after.filter((issue) => (!sameSlot || issue.code !== 'window') && worsenedIssue(issue, before)));
+  if (conflicts.length) return { conflicts };
+
+  const slots = plan.slots.map((slot) => slot === target ? nextTarget : slot === source ? nextSource : slot);
+  if (existingTarget) return { plan: { ...plan, slots } };
+  const updated = sortedSlots([...slots, nextTarget]);
+  return { plan: { ...plan, request: requestWithSlots(plan.request, updated), slots: updated } };
+}
+
+export function applyEdit(plan, command) {
+  if (command.type === 'move') {
+    if (!Number.isInteger(command.toIndex)) return plan;
+    return moveVisit(plan, command).plan ?? plan;
+  }
+  if (command.type !== 'remove') return plan;
+  const slot = plan.slots.find((item) => item.id === command.slotId);
+  const sourceIndex = slot?.stops.findIndex((stop) => stop.id === command.stopId) ?? -1;
+  if (sourceIndex < 0) return plan;
+
+  const stops = slot.stops.toSpliced(sourceIndex, 1);
   return { ...plan, slots: plan.slots.map((item) => item.id === slot.id ? { ...slot, stops } : item) };
 }
 
@@ -253,31 +334,21 @@ export function appendVisit(plan, request, { slotId, placeId }) {
   const id = `visit-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')}`;
   const slot = { ...target, stops: [...(previous?.stops ?? []), { id, placeId, manual: true }] };
   const others = current.slots.filter((item) => item.id !== slotId);
-  const slots = [...others, slot].sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start);
+  const slots = sortedSlots([...others, slot]);
 
   const conflicts = [];
   for (const other of others) {
-    if (other.date === slot.date && slot.start < other.end && other.start < slot.end) {
+    if (slotOverlap(slot, other)) {
       conflicts.push({ code: 'overlap', slot: other });
     }
   }
-  for (const stop of schedule(slot).stops) {
-    for (const issue of stop.issues) {
-      if (issue.code !== 'opening') conflicts.push({ ...issue, placeName: stop.place.name, departure: stop.departure });
-    }
-  }
+  conflicts.push(...blockingIssues(slot));
   const { total, overBudget } = planCosts(slots, request.budget);
   if (overBudget) conflicts.push({ code: 'budget', total, budget: request.budget, overBudget });
   if (conflicts.length) return { conflicts };
 
   // Apply the selected window and the current whole-trip budget while keeping the other slots from the itinerary.
-  const updatedRequest = {
-    ...current.request,
-    startDate: target.date < current.request.startDate ? target.date : current.request.startDate,
-    endDate: target.date > current.request.endDate ? target.date : current.request.endDate,
-    budget: request.budget,
-    slots: slots.map(({ id, date, period, start, end }) => ({ id, date, period, start, end })),
-  };
+  const updatedRequest = requestWithSlots({ ...current.request, budget: request.budget }, slots);
   return { plan: { ...current, request: updatedRequest, slots } };
 }
 

@@ -304,3 +304,143 @@ test('adding to a confirmed trip only writes its draft and survives a new store 
   assert.deepEqual(reopened.get(other.id), other);
   assert.deepEqual(reopened.get(id), updated);
 });
+
+function savedTransferDraft(sourcePlaces, targetPlaces) {
+  const form = exampleDraft();
+  form.days['2026-11-29'] = { morning: { enabled: true, start: '08:00', end: '11:00' } };
+  const { request } = prepareRequest(form);
+  const visits = [sourcePlaces, targetPlaces, ['trang-tien']];
+  const slots = request.slots.map((slot, index) => ({
+    ...slot, stops: visits[index].map((placeId) => ({ id: `visit-${placeId}`, placeId })),
+  }));
+  return { form, plan: { version: 1, request, slots }, appliedDraft: JSON.stringify(form), undo: null };
+}
+
+test('moving a legacy visit to an empty session on another day leaves the source session empty', () => {
+  const storage = memoryStorage();
+  const store = createTripStore(storage);
+  const { id } = store.create();
+  const draft = savedTransferDraft(['ngoc-son'], []);
+  const [source, target, third] = draft.plan.slots;
+  const [visit] = source.stops;
+  store.saveDraft(id, draft);
+
+  const { trip } = store.moveVisit(id, { slotId: source.id, toSlotId: target.id, stopId: visit.id });
+  const [empty, moved, untouched] = trip.draft.plan.slots;
+  const review = inspectPlan(trip.draft.plan);
+
+  assert.equal(empty.id, source.id);
+  assert.deepEqual(empty.stops, []);
+  assert.deepEqual(moved.stops, [visit]);
+  assert.deepEqual(untouched, third);
+  assert.equal(review.slots[0].freeMinutes, source.end - source.start);
+  assert.equal(clock(review.slots[1].stops[0].arrival), '14:00');
+  assert.equal(review.total, inspectPlan(draft.plan).total);
+  assert.deepEqual(createTripStore(storage).get(id), trip);
+});
+
+test('moving a visit by ID distinguishes two visits at the same place', () => {
+  const store = createTripStore(memoryStorage());
+  const { id } = store.create();
+  const draft = savedTransferDraft(['ngoc-son'], []);
+  const [source, target] = draft.plan.slots;
+  const [original] = source.stops;
+  const second = { id: 'visit-a1234567890123456789012345678901', placeId: original.placeId, manual: true };
+  source.stops.push(second);
+  store.saveDraft(id, draft);
+
+  const { trip } = store.moveVisit(id, { slotId: source.id, toSlotId: target.id, stopId: second.id });
+
+  assert.deepEqual(trip.draft.plan.slots[0].stops, [original]);
+  assert.deepEqual(trip.draft.plan.slots[1].stops, [second]);
+  assert.equal(inspectPlan(trip.draft.plan).total, inspectPlan(draft.plan).total);
+});
+
+test('placing a dragged visit before a destination visit recalculates walking in both sessions', () => {
+  const store = createTripStore(memoryStorage());
+  const { id } = store.create();
+  const other = store.create();
+  const draft = savedTransferDraft(['ngoc-son', 'dinh-cafe', 'nha-tho'], ['ho-guom']);
+  const [source, target] = draft.plan.slots;
+  store.saveDraft(id, draft);
+  const { confirmed } = store.confirm(id);
+  const before = inspectPlan(draft.plan);
+  const { trip } = store.moveVisit(id, {
+    slotId: source.id, toSlotId: target.id, stopId: 'visit-dinh-cafe', beforeStopId: 'visit-ho-guom',
+  });
+  const after = inspectPlan(trip.draft.plan);
+
+  const [ngoc, church] = after.slots[0].stops;
+  const [coffee, lake] = after.slots[1].stops;
+  assert.deepEqual([ngoc.id, church.id, coffee.id, lake.id], ['visit-ngoc-son', 'visit-nha-tho', 'visit-dinh-cafe', 'visit-ho-guom']);
+  assert.equal(ngoc.walkToNext, walkMinutes(ngoc.place, church.place));
+  assert.notEqual(ngoc.walkToNext, before.slots[0].stops[0].walkToNext);
+  assert.equal(church.arrival, ngoc.departure + ngoc.walkToNext);
+  assert.equal(coffee.walkToNext, walkMinutes(coffee.place, lake.place));
+  assert.equal(lake.arrival, coffee.departure + coffee.walkToNext);
+  assert.ok(after.slots[0].freeMinutes > before.slots[0].freeMinutes);
+  assert.ok(after.slots[1].freeMinutes < before.slots[1].freeMinutes);
+  assert.deepEqual(after.slots[2], before.slots[2]);
+  assert.equal(after.total, before.total);
+  assert.deepEqual(trip.confirmed, confirmed);
+  assert.deepEqual(store.get(other.id), other);
+});
+
+test('rejected moves report the affected session and leave the stored plan byte for byte', () => {
+  const storage = memoryStorage();
+  const store = createTripStore(storage);
+  const { id } = store.create();
+  const draft = savedTransferDraft(['ngoc-son'], ['ho-guom']);
+  const [source, target] = draft.plan.slots;
+  target.stops[0].fixedStart = 14 * 60 + 20;
+  store.saveDraft(id, draft);
+  const before = storage.getItem(tripStoragePrefix + id);
+
+  const result = store.moveVisit(id, {
+    slotId: source.id, toSlotId: target.id, stopId: 'visit-ngoc-son', beforeStopId: 'visit-ho-guom',
+  });
+
+  assert.ok(result.conflicts.some((issue) => issue.code === 'fixed' && issue.slot.id === target.id && issue.start === 860 && issue.ready > issue.start));
+  assert.equal(storage.getItem(tripStoragePrefix + id), before);
+
+  const fixedDate = store.moveVisit(id, { slotId: target.id, toSlotId: source.id, stopId: 'visit-ho-guom' });
+  assert.ok(fixedDate.conflicts.some((issue) => issue.code === 'fixed-date' && issue.slot.id === source.id));
+  assert.equal(storage.getItem(tripStoragePrefix + id), before);
+
+  target.end = 14 * 60 + 30;
+  target.stops = [];
+  store.saveDraft(id, draft);
+  const short = storage.getItem(tripStoragePrefix + id);
+  const window = store.moveVisit(id, { slotId: source.id, toSlotId: target.id, stopId: 'visit-ngoc-son' });
+  assert.ok(window.conflicts.some((issue) => issue.code === 'window' && issue.slot.id === target.id && issue.end === target.end));
+  assert.equal(storage.getItem(tripStoragePrefix + id), short);
+});
+
+test('a selected slot added in the current form can receive a visit without regenerating the plan', () => {
+  const store = createTripStore(memoryStorage());
+  const { id } = store.create();
+  const draft = savedTransferDraft(['ngoc-son'], ['ho-guom']);
+  const [source, target, third] = draft.plan.slots;
+  draft.form.days[source.date].afternoon = { enabled: true, start: '14:00', end: '17:00' };
+  const toSlotId = `${source.date}-afternoon`;
+  store.saveDraft(id, draft);
+
+  const { trip } = store.moveVisit(id, { slotId: source.id, toSlotId, stopId: 'visit-ngoc-son' });
+
+  assert.deepEqual(trip.draft.plan.slots.map(({ id }) => id), [source.id, toSlotId, target.id, third.id]);
+  assert.deepEqual(trip.draft.plan.slots[1].stops, source.stops);
+  assert.deepEqual(trip.draft.plan.slots.slice(2), [target, third]);
+  assert.equal(trip.draft.appliedDraft, JSON.stringify(draft.form));
+});
+
+test('a deselected draft slot stays visible in the existing plan but is not a move destination', () => {
+  const store = createTripStore(memoryStorage());
+  const { id } = store.create();
+  const draft = savedTransferDraft(['ngoc-son'], ['ho-guom']);
+  const [source, target] = draft.plan.slots;
+  draft.form.days[target.date].afternoon.enabled = false;
+  store.saveDraft(id, draft);
+
+  assert.deepEqual(store.moveVisit(id, { slotId: source.id, toSlotId: target.id, stopId: 'visit-ngoc-son' }), { error: 'target' });
+  assert.deepEqual(store.get(id).draft.plan.slots[1], target);
+});
