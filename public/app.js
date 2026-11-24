@@ -516,6 +516,29 @@ function tripDates(trip) {
   return 'Chưa chọn ngày';
 }
 
+function tripStatus(trip) {
+  if (hasDraftChanges(trip)) return 'Đã chốt · Có nháp';
+  return trip.confirmed ? 'Đã chốt' : 'Nháp';
+}
+
+function renderHome() {
+  const [recent] = trips.list();
+  $('home-recent').hidden = !recent;
+  $('sidebar-recent').hidden = !recent;
+  if (!recent) return;
+
+  const slots = recent.draft.plan?.slots;
+  const details = slots
+    ? `${slots.length} buổi · ${slots.reduce((count, slot) => count + slot.stops.length, 0)} điểm đã xếp`
+    : tripDates(recent);
+  const href = tripHash(recent.id);
+  $('recent-trip-link').href = href;
+  $('sidebar-trip-link').href = href;
+  $('recent-trip-name').textContent = recent.name;
+  $('sidebar-trip-name').textContent = recent.name;
+  $('recent-trip-details').textContent = `${tripStatus(recent)} · ${details}`;
+}
+
 function renderTripList() {
   const allTrips = trips.list();
   $('empty-trips').hidden = allTrips.length > 0;
@@ -532,7 +555,7 @@ function renderTripList() {
     link.querySelector('strong').textContent = trip.name;
     link.querySelector('.trip-card-info > span').textContent = tripDates(trip);
     const status = link.querySelector('.trip-card-status');
-    status.textContent = hasDraftChanges(trip) ? 'Đã chốt · Có nháp' : trip.confirmed ? 'Đã chốt' : 'Nháp';
+    status.textContent = tripStatus(trip);
     if (trip.confirmed) status.classList.add('is-confirmed');
     item.append(link);
     return item;
@@ -567,13 +590,21 @@ function toggleRename(show) {
 
 function renderRoute(focus = false) {
   const previousId = activeTrip?.id;
-  const route = location.hash.match(/^#trip\/([a-z0-9-]+)(\/confirmed)?$/);
+  const { hash } = location;
+  const route = hash.match(/^#trip\/([a-z0-9-]+)(\/confirmed)?$/);
   activeTrip = route ? trips.get(route[1]) : null;
+  const showProjects = !activeTrip && (hash === '#trips' || hash.startsWith('#trip/'));
+  const showHome = !activeTrip && !showProjects;
   viewingConfirmed = Boolean(route?.[2] && activeTrip?.confirmed);
-  $('trip-list-view').hidden = Boolean(activeTrip);
+  document.body.classList.toggle('is-home', showHome);
+  $('home-view').hidden = !showHome;
+  $('trip-list-view').hidden = !showProjects;
   $('trip-header').hidden = !activeTrip;
   $('trip-workspace').hidden = !activeTrip;
-  $('trips-link').setAttribute('aria-current', activeTrip ? 'false' : 'page');
+  $('site-footer').hidden = showHome;
+  $('home-link').setAttribute('aria-current', showHome ? 'page' : 'false');
+  $('trips-link').setAttribute('aria-current', showProjects ? 'page' : activeTrip ? 'location' : 'false');
+  $('sidebar-recent').hidden = true;
 
   if (activeTrip) {
     if (route[2] && !viewingConfirmed) history.replaceState(null, '', tripHash(activeTrip.id));
@@ -595,23 +626,34 @@ function renderRoute(focus = false) {
     updateTripControls();
     renderPlan();
     if (focus) $('trip-title').focus();
-  } else {
-    if (route) history.replaceState(null, '', '#trips');
-    document.title = 'Lịch của tôi — NonLa Wander';
+  } else if (showProjects) {
+    if (hash !== '#trips') history.replaceState(null, '', '#trips');
+    document.title = 'My Projects · NonLa Wander';
     renderTripList();
     if (focus) {
       const previous = previousId && $('trip-list').querySelector(`[data-trip-id="${previousId}"]`);
       (previous || $('trip-list-title')).focus();
     }
+  } else {
+    document.title = 'Home · NonLa Wander';
+    renderHome();
+    if (focus) {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      $('home-title').focus({ preventScroll: true });
+    }
   }
   showStorageStatus();
 }
 
-$('create-trip').addEventListener('click', () => {
+function createTrip() {
   const trip = trips.create();
   location.hash = tripHash(trip.id);
   announce('Đã tạo chuyến đi mới.');
-});
+}
+
+for (const button of document.querySelectorAll('[data-create-trip]')) {
+  button.addEventListener('click', createTrip);
+}
 
 $('rename-trip').addEventListener('click', () => toggleRename($('rename-form').hidden));
 $('trip-name').addEventListener('input', (event) => {
