@@ -1,8 +1,9 @@
 import { areas, exampleDraft, periodById, periods, placeById, places, transports, vibes } from './data.js';
 import { icon } from './icons.js';
-import { getLibraryReturn, renderLibrary, setupLibraryActions, tripLibraryHref } from './library.js';
+import { getLibraryReturn, renderLibrary, setupLibraryActions, slotLabel, tripLibraryHref } from './library.js';
 import { applyEdit, clock, createPlan, dateAt, dateIndex, draftBudget, hasKnownCost, inspectPlan, moveDestinations, openingHours, prepareRequest, weekday } from './planner.js';
 import { setupReplacement } from './replace-visit.js';
+import { setupTripLibrary } from './trip-library.js';
 import { createTripStore, hasDraftChanges } from './trips.js';
 
 const $ = (id) => document.getElementById(id);
@@ -223,6 +224,7 @@ function renderStale() {
 function onDraftChange() {
   renderStale();
   save();
+  if (tripLibrary.open) renderPlan();
 }
 
 form.addEventListener('input', ({ target }) => {
@@ -270,7 +272,7 @@ form.addEventListener('change', ({ target }) => {
   }
   checkExistingErrors();
   onDraftChange();
-  if (editing && (name === 'startDate' || name === 'endDate' || dataset.period)) renderPlan();
+  if (editing && !tripLibrary.open && (name === 'startDate' || name === 'endDate' || dataset.period)) renderPlan();
 });
 
 days.addEventListener('click', (event) => {
@@ -467,7 +469,7 @@ function editButton(action, label, slot, stop, disabled = false) {
   </button>`;
 }
 
-function slotMarkup(slot, opened, destinations) {
+function slotMarkup(slot, opened, destinations, librarySlot) {
   const period = periodById[slot.period];
   let shortage = '';
   if (!slot.stops.length) shortage = 'Buổi này chưa có điểm ghé.';
@@ -482,6 +484,9 @@ function slotMarkup(slot, opened, destinations) {
       <span>${clock(slot.start)}–${clock(slot.end)}</span>
     </div>
     ${stops || editing ? `<ol class="stops" ${!stops ? 'aria-hidden="true"' : ''}>${stops}${editing ? dropMarkup(slot, eligible) : ''}</ol>` : ''}
+    ${librarySlot ? `<div class="trip-library-drop" data-library-slot="${slot.id}" aria-hidden="true">
+      <strong>Thả ở cuối buổi</strong><span>${slotLabel(librarySlot)}</span>
+    </div>` : ''}
     ${shortage ? warning(shortage) : ''}
     ${slot.freeMinutes > 0 && (!shortage || !slot.stops.length) ? `<p class="slot-slack">Còn ${slot.freeMinutes} phút linh động</p>` : ''}
     ${undo?.slotId === slot.id ? `<div class="undo-area">
@@ -492,27 +497,34 @@ function slotMarkup(slot, opened, destinations) {
 }
 
 function renderPlan() {
-  $('empty-plan').hidden = Boolean(plan);
+  const librarySlots = tripLibrary.sync(activeTrip, draft, plan, viewingConfirmed);
+  const empty = $('empty-plan');
+  empty.hidden = !!plan || !!librarySlots.length;
+  empty.textContent = tripLibrary.open ? 'Thiết lập ngày và buổi để thêm địa điểm vào lịch.'
+    : 'Chọn ngày và buổi, rồi bấm Xếp lịch đi bộ để tạo lịch cho chuyến này.';
   $('edit-plan').hidden = !plan || viewingConfirmed;
   $('timeline-edit-hint').hidden = !editing;
-  if (!plan) {
+  if (!plan && !librarySlots.length) {
     $('trip-summary').replaceChildren();
     timeline.replaceChildren();
     renderStale();
     return;
   }
 
-  const review = reviewPlan();
+  const review = plan ? reviewPlan() : null;
+  const scheduled = review?.slots ?? [];
   const opened = new Set(Array.from(timeline.querySelectorAll('details[open]'), (detail) => detail.dataset.detail));
-  const destinations = editing ? moveDestinations(plan, draft) : [];
-  const existing = new Set(review.slots.map(({ id }) => id));
-  const added = destinations.filter(({ id }) => !existing.has(id)).map((slot) => ({ ...slot, freeMinutes: slot.end - slot.start }));
-  const visibleSlots = [...review.slots, ...added].sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start);
+  const destinations = editing && plan ? moveDestinations(plan, draft) : [];
+  const libraryById = new Map(librarySlots.map((slot) => [slot.id, slot]));
+  const existing = new Set(scheduled.map(({ id }) => id));
+  const unscheduled = new Map([...librarySlots, ...destinations].filter(({ id }) => !existing.has(id)).map((slot) => [slot.id, slot]));
+  const added = Array.from(unscheduled.values(), (slot) => ({ ...slot, stops: [], freeMinutes: slot.end - slot.start }));
+  const visibleSlots = [...scheduled, ...added].sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start);
   const grouped = Object.groupBy(visibleSlots, (slot) => slot.date);
   $('edit-plan').setAttribute('aria-pressed', editing);
-  $('edit-plan').disabled = !review.stopCount && !editing;
+  $('edit-plan').disabled = !review?.stopCount && !editing;
   $('edit-label').textContent = editing ? 'Xong' : 'Chỉnh sửa';
-  $('trip-summary').innerHTML = summaryMarkup(review);
+  $('trip-summary').innerHTML = review ? summaryMarkup(review) : '';
   timeline.innerHTML = Object.entries(grouped).map(([date, slots]) => `
     <article class="timeline-day" aria-labelledby="title-${date}">
       <div class="timeline-day-heading">
@@ -522,7 +534,7 @@ function renderPlan() {
           <p>Tháng ${Number(date.slice(5, 7))} · ${slots.length} buổi</p>
         </div>
       </div>
-      ${slots.map((slot) => slotMarkup(slot, opened, destinations)).join('')}
+      ${slots.map((slot) => slotMarkup(slot, opened, destinations, libraryById.get(slot.id))).join('')}
     </article>`).join('');
   if (moveFeedback && !$('timeline-move-error')) timeline.insertAdjacentHTML('afterbegin', moveErrorMarkup());
   renderStale();
@@ -846,6 +858,7 @@ function toggleRename(show) {
 
 function renderRoute(focus = false, previousHash = '') {
   replacement.close();
+  tripLibrary.close();
   const previousId = activeTrip?.id;
   const { hash } = location;
   const [path, search] = hash.split('?', 2);
@@ -967,6 +980,24 @@ const replacement = setupReplacement({
     if (latest && JSON.stringify(latest) !== JSON.stringify(activeTrip)) renderEditedTrip(latest);
     (timeline.querySelector(`[data-action="replace"][data-slot="${slotId}"][data-stop="${stopId}"]`) ?? $('edit-plan')).focus();
   },
+});
+
+const tripLibrary = setupTripLibrary({
+  trips,
+  refresh: renderPlan,
+  changeLayout(open) {
+    const workspace = $('trip-workspace');
+    const planner = $('planner');
+    workspace.classList.toggle('trip-library-workspace', open);
+    if (open) workspace.append(planner);
+    else workspace.prepend(planner);
+  },
+  focusSetup(validation) {
+    errors = validation;
+    renderErrors();
+    focusTripField(Object.keys(validation)[0] ?? 'sessions');
+  },
+  onAdded: renderEditedTrip,
 });
 
 $('rename-trip').addEventListener('click', () => toggleRename($('rename-form').hidden));

@@ -397,6 +397,55 @@ main.wrapper { flex: 1; }
 .planner-layout { display: grid; gap: 2.5rem; align-items: start; padding-block: 1.5rem 3rem; }
 .planner-layout > section { min-width: 0; scroll-margin-top: 1.2rem; }
 .planner-layout.confirmed-workspace { grid-template-columns: minmax(0, 1fr); max-width: 42rem; }
+#trip-workspace.trip-library-workspace { gap: 1.25rem; }
+.trip-library { display: grid; gap: .75rem; }
+.trip-library-heading, .trip-library-selection-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .45rem .75rem; }
+.trip-library-heading h2 { color: var(--dashboard-green); font: 700 clamp(1.45rem, 4vw, 1.85rem)/1.2 var(--serif); }
+.trip-library-drag-hint { display: none; color: var(--muted); font-size: .85rem; }
+.trip-library-picker, #trip-library-form { display: grid; gap: .65rem; }
+.trip-library :is(input, select) { width: 100%; min-width: 0; min-height: 44px; padding: .4rem .65rem; border: 1px solid var(--control-line); border-radius: var(--small-radius); background: var(--field); color: inherit; font: inherit; }
+.trip-library select { cursor: pointer; }
+.trip-library-results { display: grid; gap: .45rem; margin: 0; padding: 0; list-style: none; }
+.trip-library-results:empty { display: none; }
+.trip-library-results li { display: flex; align-items: stretch; gap: .35rem; }
+.trip-library-place { flex: 1; min-width: 0; min-height: 44px; padding: .4rem .6rem; border: 1px solid var(--line); border-radius: var(--small-radius); background: var(--paper); text-align: start; overflow-wrap: anywhere; }
+.trip-library-place strong { color: var(--dashboard-green); }
+.trip-library-place small { display: block; color: var(--muted); font-size: .8rem; }
+.trip-library-place:hover, .trip-library-place[aria-pressed="true"] { border-color: var(--dashboard-green); background: var(--dashboard-mist); }
+.trip-library-grip { align-self: center; }
+.trip-library-selection { display: grid; gap: .65rem; padding-top: .65rem; border-top: 1px solid var(--line); }
+.trip-library-selection h3 { color: var(--dashboard-green); }
+.trip-library.is-library-dragging .trip-library-selection { display: none; }
+#trip-library-placement { margin-top: .35rem; }
+.trip-library-actions .primary-button { width: auto; min-height: 44px; }
+.trip-library-success { padding: .55rem .65rem; border-radius: var(--small-radius); background: var(--dashboard-mist); color: var(--dashboard-green); font-size: .875rem; }
+.trip-library-drop { display: none; }
+#trip-library-resume { margin-bottom: .65rem; }
+
+@media (max-width: 899px) {
+  .trip-library.has-selection .trip-library-picker { display: none; }
+}
+
+@media (min-width: 900px) {
+  #trip-workspace.trip-library-workspace {
+    grid-template-columns: minmax(17rem, .8fr) minmax(0, 1.2fr);
+    grid-template-areas: "library itinerary" "library planner";
+  }
+  .trip-library-workspace #itinerary { grid-area: itinerary; }
+  .trip-library-workspace #planner { grid-area: planner; }
+  .trip-library-workspace .trip-library { grid-area: library; position: sticky; top: .85rem; max-height: calc(100dvh - 1.7rem); overflow: auto; }
+  .trip-library-results { max-height: min(31vh, 16rem); overflow: auto; padding: .25rem; margin: -.25rem; }
+}
+
+@media (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  .trip-library-drag-hint { display: block; }
+  .is-library-dragging .trip-library-drop { display: grid; gap: .12rem; margin-block: .35rem; padding: .5rem .7rem; border: 1px dashed var(--dashboard-green); border-radius: var(--small-radius); background: var(--paper); color: var(--dashboard-green); font-size: .84rem; }
+  .is-library-dragging .trip-library-drop-active { border-style: solid; outline: 1px solid var(--dashboard-green); background: var(--dashboard-mist); }
+}
+
+@media (max-width: 899px), (hover: none), (pointer: coarse) {
+  .trip-library .trip-library-grip { display: none; }
+}
 .section-heading, .section-name, .panel-heading { display: flex; align-items: center; }
 .section-heading { justify-content: space-between; gap: .45rem .75rem; margin-bottom: .85rem; flex-wrap: wrap; }
 .section-name { gap: .6rem; }

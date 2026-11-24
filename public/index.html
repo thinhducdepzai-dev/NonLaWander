@@ -264,6 +264,7 @@
           <div class="section-name"><span class="section-icon" data-icon="sliders"></span><h2 id="planner-title">Lên lịch đi chơi</h2></div>
           <button type="button" id="load-example" class="text-button"><span data-icon="sparkles"></span>Lịch mẫu</button>
         </div>
+        <button type="button" id="trip-library-resume" class="text-button" hidden></button>
 
         <form id="trip-form" novalidate>
           <div id="form-errors" class="error-box" tabindex="-1" hidden></div>
@@ -345,10 +346,51 @@
         </form>
       </section>
 
+      <section id="trip-library-panel" class="paper-panel trip-library" aria-labelledby="trip-library-title" hidden>
+        <div class="trip-library-heading">
+          <h2 id="trip-library-title">Thư viện địa điểm</h2>
+          <button type="button" id="trip-library-close" class="text-button">Đóng</button>
+        </div>
+        <p class="trip-library-drag-hint">Kéo tay nắm của địa điểm tới cuối buổi trên lịch.</p>
+        <div id="trip-library-picker" class="trip-library-picker">
+          <div class="field">
+            <label for="trip-library-query">Tên địa điểm</label>
+            <input type="search" id="trip-library-query" placeholder="Ví dụ: Cà phê Đinh" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="trip-library-group">Nhóm địa điểm</label>
+            <select id="trip-library-group"><option value="">Tất cả nhóm</option></select>
+          </div>
+          <p id="trip-library-empty" class="helper" role="status" hidden>Không có địa điểm phù hợp. Hãy thử tên hoặc nhóm khác.</p>
+          <ul id="trip-library-results" class="trip-library-results" role="list"></ul>
+        </div>
+        <section id="trip-library-selection" class="trip-library-selection" aria-labelledby="trip-library-selected" hidden>
+          <div class="trip-library-selection-heading">
+            <h3 id="trip-library-selected" tabindex="-1"></h3>
+            <button type="button" id="trip-library-change" class="text-button">Chọn điểm khác</button>
+          </div>
+          <form id="trip-library-form">
+            <div id="trip-library-slot-field" class="field">
+              <label for="trip-library-slot">Buổi đích</label>
+              <select id="trip-library-slot" aria-describedby="trip-library-placement"></select>
+              <p id="trip-library-placement" class="helper"></p>
+            </div>
+            <p id="trip-library-guidance" class="helper" hidden></p>
+            <div id="trip-library-error" class="error-box" role="alert" tabindex="-1" hidden></div>
+            <div class="trip-library-actions">
+              <button type="submit" id="trip-library-submit" class="primary-button">Thêm vào lịch</button>
+              <button type="button" id="trip-library-setup" class="text-button" hidden>Thiết lập buổi</button>
+            </div>
+          </form>
+        </section>
+        <p id="trip-library-success" class="trip-library-success" role="status" hidden></p>
+      </section>
+
       <section id="itinerary" aria-labelledby="itinerary-title">
         <div class="section-heading itinerary-heading">
           <div class="section-name"><span class="section-icon" data-icon="route"></span><h2 id="itinerary-title" tabindex="-1">Lịch của bạn</h2></div>
           <div class="itinerary-actions">
+            <button type="button" id="trip-library-toggle" class="text-button" aria-expanded="false" aria-controls="trip-library-panel" hidden><span data-icon="library"></span><span id="trip-library-toggle-label">Thêm từ thư viện</span></button>
             <button id="edit-plan" type="button" class="text-button" aria-pressed="false" hidden><span data-icon="edit"></span><span id="edit-label">Chỉnh sửa</span></button>
             <button id="confirm-plan" type="button" class="text-button" hidden><span data-icon="check"></span><span id="confirm-label">Chốt lịch</span></button>
           </div>

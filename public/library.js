@@ -145,12 +145,12 @@ function renderDetail(place) {
   renderHours(place.hours);
 }
 
-function slotLabel(slot) {
+export function slotLabel(slot) {
   const date = slot.date.split('-').reverse().join('/');
   return `${periodById[slot.period].label} ${date} · ${clock(slot.start)}–${clock(slot.end)}`;
 }
 
-function conflictMessage(conflict) {
+export function conflictMessage(conflict) {
   switch (conflict.code) {
     case 'window': return `${conflict.placeName} dự kiến kết thúc lúc ${clock(conflict.departure)}, sau giờ kết thúc buổi ${clock(conflict.end)}.`;
     case 'budget': return `Tổng ${currency.format(conflict.total)}/người vượt ngân sách ${currency.format(conflict.budget)}/người (vượt ${currency.format(conflict.overBudget)}).`;
