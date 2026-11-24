@@ -140,14 +140,14 @@
       </header>
       <div class="library-detail-actions">
         <button type="button" id="library-add-toggle" class="primary-button" aria-controls="library-add" aria-expanded="false" hidden><span data-icon="plus"></span>Thêm vào lịch</button>
-        <button type="button" id="library-save-toggle" class="text-button" aria-controls="library-save" aria-expanded="false" hidden><span data-icon="bookmark"></span>Lưu vào chuyến</button>
+        <button type="button" id="library-save-toggle" class="text-button" aria-controls="library-save" aria-expanded="false" hidden><span data-icon="bookmark"></span>Lưu để xếp sau</button>
       </div>
       <div id="library-saved-status" class="library-saved-status" role="status" aria-atomic="true" hidden>
         <p>Đã lưu vào</p>
         <ul id="library-saved-trips" role="list"></ul>
       </div>
       <section id="library-add" class="library-add" aria-labelledby="library-add-title" hidden>
-        <h2 id="library-add-title">Chọn chuyến và buổi</h2>
+        <h2 id="library-add-title">Thêm vào lịch nháp</h2>
         <form id="library-add-form">
           <p id="library-add-trip-context" class="library-add-guidance" hidden></p>
           <div id="library-add-fields" class="library-add-fields">
@@ -228,7 +228,7 @@
           </div>
         </div>
       </form>
-      <p class="helper">Nháp tự lưu trên trình duyệt này.</p>
+      <p id="trip-version-guidance" class="helper"></p>
       <div id="trip-library-context" class="trip-library-context" hidden>
         <p id="trip-library-message" role="status" hidden></p>
         <a id="trip-library-return" class="back-link"></a>
@@ -388,7 +388,7 @@
 
       <section id="itinerary" aria-labelledby="itinerary-title">
         <div class="section-heading itinerary-heading">
-          <div class="section-name"><span class="section-icon" data-icon="route"></span><h2 id="itinerary-title" tabindex="-1">Lịch của bạn</h2></div>
+          <div class="section-name"><span class="section-icon" data-icon="route"></span><h2 id="itinerary-title" tabindex="-1">Lịch nháp</h2></div>
           <div class="itinerary-actions">
             <button type="button" id="trip-library-toggle" class="text-button" aria-expanded="false" aria-controls="trip-library-panel" hidden><span data-icon="library"></span><span id="trip-library-toggle-label">Thêm từ thư viện</span></button>
             <button id="edit-plan" type="button" class="text-button" aria-pressed="false" hidden><span data-icon="edit"></span><span id="edit-label">Chỉnh sửa</span></button>

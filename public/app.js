@@ -393,9 +393,13 @@ function moveForm(slot, stop, destinations) {
   const selected = options.find(({ id }) => id === moveSelection.toSlotId) ?? options[0];
   if (!selected) return '';
 
-  return `<form id="timeline-move-form" class="timeline-move-form">
-    <label for="timeline-move-slot">Buổi đích</label>
-    <select id="timeline-move-slot" aria-describedby="timeline-move-position">${options.map((item) =>
+  return `<form id="timeline-move-form" class="timeline-move-form" aria-labelledby="timeline-move-title">
+    <div>
+      <strong id="timeline-move-title">Chuyển ${stop.place.name}</strong>
+      <p id="timeline-move-source">Lượt ${clock(stop.arrival)} · ${slotName(slot)}</p>
+    </div>
+    <label for="timeline-move-slot">Chuyển đến buổi</label>
+    <select id="timeline-move-slot" aria-describedby="timeline-move-title timeline-move-source timeline-move-position">${options.map((item) =>
       `<option value="${item.id}" ${item.id === selected.id ? 'selected' : ''}>${slotName(item)} · ${clock(item.start)}–${clock(item.end)}</option>`).join('')}</select>
     <p id="timeline-move-position" role="status">${placementText(selected)}</p>
     <div class="timeline-move-actions">
@@ -751,7 +755,8 @@ function renderSavedPlaces() {
     details.querySelector('small').textContent = [place.category, area].filter(Boolean).join(' · ');
     const add = item.querySelector('.trip-saved-add');
     add.href = tripLibraryHref(id, placeId, true);
-    add.setAttribute('aria-label', `Thêm ${place.name} vào lịch`);
+    add.textContent = viewingConfirmed ? 'Thêm vào nháp' : 'Thêm vào lịch';
+    add.setAttribute('aria-label', `Thêm ${place.name} ${viewingConfirmed ? 'vào nháp' : 'vào lịch'}`);
     const remove = item.querySelector('.trip-saved-remove');
     remove.dataset.placeId = placeId;
     remove.setAttribute('aria-label', `Bỏ lưu ${place.name}`);
@@ -898,7 +903,8 @@ function renderRoute(focus = false, previousHash = '') {
     toggleRename(false);
     $('planner').hidden = viewingConfirmed;
     $('trip-workspace').classList.toggle('confirmed-workspace', viewingConfirmed);
-    $('itinerary-title').textContent = viewingConfirmed ? 'Lịch đã chốt' : 'Lịch của bạn';
+    $('itinerary-title').textContent = viewingConfirmed ? 'Lịch đã chốt' : 'Lịch nháp';
+    $('trip-version-guidance').textContent = viewingConfirmed ? 'Mở Nháp để chỉnh tiếp lịch.' : 'Nháp tự lưu trên trình duyệt này.';
     if (!viewingConfirmed) {
       for (const detail of form.querySelectorAll('details[open]')) detail.open = false;
       syncDraft();

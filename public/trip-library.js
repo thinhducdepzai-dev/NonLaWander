@@ -113,10 +113,14 @@ export function setupTripLibrary({ trips, refresh, changeLayout, focusSetup, onA
     }
   }
 
-  function choose(placeId) {
-    selected = placeById[placeId];
+  function clearFeedback() {
     error.hidden = true;
     success.hidden = true;
+  }
+
+  function choose(placeId) {
+    selected = placeById[placeId];
+    clearFeedback();
     renderCurrentPlace();
     renderSlots();
   }
@@ -137,6 +141,7 @@ export function setupTripLibrary({ trips, refresh, changeLayout, focusSetup, onA
 
   function add(placeId, slotId) {
     if (panel.hidden || !tripId || !slotId) return;
+    clearFeedback();
     const result = trips.addVisit(tripId, { placeId, slotId });
     if (!result.trip) {
       const messages = result.conflicts?.map(conflictMessage) ?? Object.values(result.errors ?? {});
@@ -146,7 +151,6 @@ export function setupTripLibrary({ trips, refresh, changeLayout, focusSetup, onA
       return;
     }
 
-    error.hidden = true;
     const slot = result.trip.draft.plan.slots.find((item) => item.id === slotId);
     success.textContent = `Đã thêm ${placeById[placeId].name} vào ${slotLabel(slot)}.`;
     success.hidden = false;
@@ -162,8 +166,7 @@ export function setupTripLibrary({ trips, refresh, changeLayout, focusSetup, onA
     }
     query.value = '';
     group.value = '';
-    error.hidden = true;
-    success.hidden = true;
+    clearFeedback();
     panel.hidden = false;
     toggle.setAttribute('aria-expanded', 'true');
     $('trip-library-toggle-label').textContent = 'Đóng thư viện';
@@ -184,11 +187,12 @@ export function setupTripLibrary({ trips, refresh, changeLayout, focusSetup, onA
   $('trip-library-change').addEventListener('click', () => {
     selected = null;
     resume.hidden = true;
+    clearFeedback();
     renderCurrentPlace();
     query.focus();
   });
   slotSelect.addEventListener('change', () => {
-    error.hidden = true;
+    clearFeedback();
     renderPlacement();
   });
   setup.addEventListener('click', () => {
