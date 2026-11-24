@@ -1,5 +1,5 @@
 import { areas, periodById, placeById, transports, vibes } from './data.js';
-import { appendVisit, dateIndex, draftBudget, moveVisit, newVisitId, prepareRequest, previewReplacement } from './planner.js';
+import { appendVisit, dateIndex, draftBudget, moveVisit, newVisitId, placeCost, prepareRequest, previewReplacement } from './planner.js';
 
 export const legacyStorageKey = 'nonla-wander-v1';
 export const tripStoragePrefix = 'nonla-wander-v2:';
@@ -14,10 +14,15 @@ const isRecord = (value) => value !== null && typeof value === 'object' && !Arra
 const isDate = (value) => typeof value === 'string' && Number.isInteger(dateIndex(value));
 const isTimeInput = (value) => typeof value === 'string' && (value === '' || timePattern.test(value));
 const isMoney = (value) => Number.isSafeInteger(value) && value >= 0;
+export const isParticipantCount = (value) => Number.isSafeInteger(value) && value > 0;
+export const participantCount = (version) => version.participants ?? 1;
+const hasValidParticipants = (version) => version.participants === undefined || isParticipantCount(version.participants);
 const isPeriod = (id) => typeof id === 'string' && Object.hasOwn(periodById, id);
 const isPlace = (id) => typeof id === 'string' && Object.hasOwn(placeById, id);
 const isList = (value, check) => Array.isArray(value) && value.every(check);
 const isKnown = (items, id) => items.some((item) => item.id === id);
+const isPriceSnapshot = (prices) => isRecord(prices) && Object.entries(prices).every(([id, cost]) =>
+  isPlace(id) && (cost === null || (Number.isFinite(cost) && cost >= 0)));
 
 function isPreferences(value) {
   return isList(value.vibes, (id) => isKnown(vibes, id)) &&
@@ -63,13 +68,15 @@ function isUndo(undo) {
 
 function isDraft(draft) {
   return isRecord(draft) && isForm(draft.form) && (draft.plan === null || isPlan(draft.plan)) &&
-    (draft.appliedDraft === null || typeof draft.appliedDraft === 'string') && isUndo(draft.undo);
+    (draft.appliedDraft === null || typeof draft.appliedDraft === 'string') && isUndo(draft.undo) && hasValidParticipants(draft);
 }
 
 function isTrip(trip, id) {
   return isRecord(trip) && trip.version === 2 && trip.id === id && Number.isFinite(trip.createdAt) &&
     typeof trip.name === 'string' && isDraft(trip.draft) &&
-    (trip.confirmed === null || (isRecord(trip.confirmed) && isForm(trip.confirmed.form) && isPlan(trip.confirmed.plan)));
+    (trip.confirmed === null || (isRecord(trip.confirmed) && isForm(trip.confirmed.form) &&
+      isPlan(trip.confirmed.plan) && hasValidParticipants(trip.confirmed) &&
+      (trip.confirmed.prices === undefined || isPriceSnapshot(trip.confirmed.prices))));
 }
 
 function blankDraft() {
@@ -95,12 +102,18 @@ function newTrip(id, name = defaultName, draft = blankDraft()) {
   return { version: 2, id, name, createdAt: Date.now(), draft, confirmed: null, savedPlaceIds: [] };
 }
 
-function planSnapshot({ form, plan }) {
-  return { form, plan };
+function planSnapshot(version) {
+  return { form: version.form, plan: version.plan, participants: participantCount(version) };
+}
+
+function tripPrices(plan) {
+  return Object.fromEntries(plan.slots.flatMap(({ stops }) => stops.map(({ placeId }) => [placeId, placeCost(placeId)])));
 }
 
 export function hasDraftChanges(trip) {
-  return trip.confirmed !== null && JSON.stringify(planSnapshot(trip.draft)) !== JSON.stringify(trip.confirmed);
+  if (!trip.confirmed) return false;
+  if (JSON.stringify(planSnapshot(trip.draft)) !== JSON.stringify(planSnapshot(trip.confirmed))) return true;
+  return Boolean(trip.confirmed.prices && Object.entries(trip.confirmed.prices).some(([id, cost]) => placeCost(id) !== cost));
 }
 
 export function createTripStore(storage) {
@@ -200,9 +213,16 @@ export function createTripStore(storage) {
     return trip && write({ ...trip, name: name.trim() || defaultName });
   }
 
-  function saveDraft(id, draft) {
+  function saveDraft(id, { form, plan, appliedDraft, undo }) {
     const trip = get(id);
-    return trip && write({ ...trip, draft });
+    return trip && write({ ...trip, draft: { ...trip.draft, form, plan, appliedDraft, undo } });
+  }
+
+  function setParticipants(id, participants) {
+    if (!isParticipantCount(participants)) return null;
+    const trip = get(id);
+    if (!trip || participantCount(trip.draft) === participants) return trip;
+    return write({ ...trip, draft: { ...trip.draft, participants } });
   }
 
   function addVisit(id, command) {
@@ -269,11 +289,13 @@ export function createTripStore(storage) {
   function confirm(id) {
     const trip = get(id);
     if (!trip?.draft.plan) return null;
-    return write({ ...trip, confirmed: structuredClone(planSnapshot(trip.draft)) });
+    const confirmed = structuredClone(planSnapshot(trip.draft));
+    confirmed.prices = tripPrices(confirmed.plan);
+    return write({ ...trip, confirmed });
   }
 
   return {
-    list, get, create, rename, saveDraft, setSavedPlace, addVisit, moveVisit: moveDraftVisit,
+    list, get, create, rename, saveDraft, setParticipants, setSavedPlace, addVisit, moveVisit: moveDraftVisit,
     previewReplacement: previewDraftReplacement, replaceVisit: replaceDraftVisit, confirm, migrateLegacy,
     get storageProblem() { return readFailed || unsaved.size > 0; },
   };

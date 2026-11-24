@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { exampleDraft, placeById } from '../public/data.js';
 import { applyEdit, clock, createPlan, inspectPlan, prepareRequest, walkMinutes } from '../public/planner.js';
-import { createTripStore, hasDraftChanges, legacyStorageKey, tripStoragePrefix } from '../public/trips.js';
+import { createTripStore, hasDraftChanges, legacyStorageKey, participantCount, tripStoragePrefix } from '../public/trips.js';
 
 function memoryStorage() {
   const entries = new Map();
@@ -169,6 +169,68 @@ test('editing a draft after confirmation preserves the snapshot until explicit u
   assert.equal(updated.confirmed.form.budget, '160000');
   assert.equal(inspectPlan(updated.confirmed.plan).stopCount, 5);
   assert.deepEqual(updated.draft.undo, edited.undo);
+});
+
+test('legacy versions default to one participant and resizing only updates the draft until reconfirmed', () => {
+  const storage = memoryStorage();
+  const store = createTripStore(storage);
+  const { id, draft: blank } = store.create();
+  assert.equal(participantCount(blank), 1);
+  const draft = sampleDraft();
+  store.saveDraft(id, draft);
+  const key = tripStoragePrefix + id;
+  const legacy = store.confirm(id);
+  delete legacy.confirmed.participants;
+  delete legacy.confirmed.prices;
+  storage.setItem(key, JSON.stringify(legacy));
+
+  const old = createTripStore(storage).get(id);
+  assert.equal(participantCount(old.draft), 1);
+  assert.equal(participantCount(old.confirmed), 1);
+  assert.equal(hasDraftChanges(old), false);
+  const before = storage.getItem(key);
+  for (const invalid of [0, -1, 1.5, '', '3', NaN, Number.MAX_SAFE_INTEGER + 1]) {
+    assert.equal(store.setParticipants(id, invalid), null);
+    assert.equal(storage.getItem(key), before);
+  }
+
+  store.setParticipants(id, 3);
+  store.saveDraft(id, draft);
+  const reloaded = createTripStore(storage).get(id);
+  assert.deepEqual(reloaded.draft, { ...draft, participants: 3 });
+  assert.deepEqual(reloaded.confirmed, old.confirmed);
+  assert.equal(hasDraftChanges(reloaded), true);
+  const updated = store.confirm(id);
+  assert.equal(updated.confirmed.participants, 3);
+  assert.deepEqual(updated.confirmed.plan, draft.plan);
+  assert.equal(hasDraftChanges(updated), false);
+});
+
+test('confirmation pins existing prices, including free stops and stops without a price', () => {
+  const storage = memoryStorage();
+  const store = createTripStore(storage);
+  const { id } = store.create();
+  store.saveDraft(id, sampleDraft());
+  store.confirm(id);
+
+  const place = placeById['ngoc-son'];
+  const original = place.cost;
+  try {
+    delete place.cost;
+    const { draft, confirmed } = createTripStore(storage).get(id);
+    assert.equal(confirmed.prices['nha-tho'], 0);
+    assert.equal(confirmed.prices['ngoc-son'], original);
+    assert.equal(inspectPlan(draft.plan).total, 170_000);
+    assert.equal(inspectPlan(draft.plan).missingCostCount, 1);
+    assert.equal(inspectPlan(confirmed.plan, undefined, confirmed.prices).total, 200_000);
+    assert.equal(hasDraftChanges({ draft, confirmed }), true);
+
+    const updated = store.confirm(id).confirmed;
+    assert.equal(updated.prices['ngoc-son'], null);
+    assert.equal(inspectPlan(updated.plan, undefined, updated.prices).missingCostCount, 1);
+  } finally {
+    place.cost = original;
+  }
 });
 
 test('adding the first visit starts an empty itinerary and treats opening hours as a warning', () => {

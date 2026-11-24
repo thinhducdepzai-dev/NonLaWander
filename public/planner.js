@@ -214,18 +214,24 @@ export function hasKnownCost(place) {
   return Number.isFinite(place.cost) && place.cost >= 0;
 }
 
+export function placeCost(placeId, prices) {
+  if (prices && Object.hasOwn(prices, placeId)) return prices[placeId];
+  const place = placeById[placeId];
+  return hasKnownCost(place) ? place.cost : null;
+}
+
 export function draftBudget(plan, form) {
   const current = Number(form.budget);
   return form.budget.trim() !== '' && Number.isSafeInteger(current) && current >= 0 ? current : plan.request.budget;
 }
 
-function planCosts(slots, budget) {
+function planCosts(slots, budget, prices) {
   let total = 0;
   let missingCostCount = 0;
   for (const slot of slots) {
     for (const { placeId } of slot.stops) {
-      const place = placeById[placeId];
-      if (hasKnownCost(place)) total += place.cost;
+      const cost = placeCost(placeId, prices);
+      if (cost !== null) total += cost;
       else missingCostCount++;
     }
   }
@@ -405,13 +411,13 @@ export function previewReplacement(plan, { slotId, stopId, placeId }, budget = p
   return { preview, fingerprint, candidate: { ...plan, slots }, slotIndex, index };
 }
 
-export function inspectPlan(plan, budget = plan.request.budget) {
+export function inspectPlan(plan, budget = plan.request.budget, prices) {
   const slots = plan.slots.map(schedule);
   const stops = slots.flatMap((slot) => slot.stops);
   const visited = new Set(stops.map((stop) => stop.placeId));
   return {
     slots,
-    ...planCosts(plan.slots, budget),
+    ...planCosts(plan.slots, budget, prices),
     stopCount: stops.length,
     missing: plan.request.mustVisit.filter((id) => placeById[id] && !visited.has(id)).map((id) => placeById[id]),
   };

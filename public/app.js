@@ -1,13 +1,14 @@
 import { areas, exampleDraft, periodById, periods, placeById, places, transports, vibes } from './data.js';
 import { icon } from './icons.js';
 import { getLibraryReturn, renderLibrary, setupLibraryActions, slotLabel, tripLibraryHref } from './library.js';
-import { applyEdit, clock, createPlan, dateAt, dateIndex, draftBudget, hasKnownCost, inspectPlan, moveDestinations, openingHours, prepareRequest, weekday } from './planner.js';
+import { applyEdit, clock, createPlan, dateAt, dateIndex, draftBudget, inspectPlan, moveDestinations, openingHours, placeCost, prepareRequest, weekday } from './planner.js';
 import { setupReplacement } from './replace-visit.js';
 import { setupTripLibrary } from './trip-library.js';
-import { createTripStore, hasDraftChanges } from './trips.js';
+import { createTripStore, hasDraftChanges, isParticipantCount, participantCount } from './trips.js';
 
 const $ = (id) => document.getElementById(id);
 const form = $('trip-form');
+const participants = $('participants');
 const days = $('day-list');
 const timeline = $('timeline');
 const dayPageSize = 7;
@@ -213,9 +214,38 @@ function renderErrors() {
 
 function checkExistingErrors() {
   if (!Object.keys(errors).length) return;
+  const countError = errors.participants;
   errors = prepareRequest(draft).errors ?? {};
+  if (countError) errors.participants = countError;
   renderErrors();
 }
+
+function enteredParticipantCount() {
+  return /^\d+$/.test(participants.value) ? Number(participants.value) : NaN;
+}
+
+function validateParticipants() {
+  if (isParticipantCount(enteredParticipantCount())) {
+    delete errors.participants;
+    return true;
+  }
+  errors.participants = 'Nhập số người là số nguyên từ 1 trở lên.';
+  return false;
+}
+
+participants.addEventListener('input', () => {
+  const count = enteredParticipantCount();
+  if (!isParticipantCount(count)) return;
+  if (errors.participants) {
+    delete errors.participants;
+    renderErrors();
+  }
+  if (count === participantCount(activeTrip.draft)) return;
+  activeTrip = trips.setParticipants(activeTrip.id, count) ?? activeTrip;
+  updateTripControls();
+  showStorageStatus();
+  if (plan) $('trip-summary').innerHTML = summaryMarkup(reviewPlan());
+});
 
 function renderStale() {
   $('stale-notice').hidden = !plan || viewingConfirmed || JSON.stringify(draft) === appliedDraft;
@@ -328,8 +358,9 @@ form.addEventListener('submit', (event) => {
   event.preventDefault();
   const result = prepareRequest(draft);
   errors = result.errors ?? {};
+  validateParticipants();
   renderErrors();
-  if (result.errors) {
+  if (Object.keys(errors).length) {
     $('form-errors').focus();
     return;
   }
@@ -348,7 +379,8 @@ form.addEventListener('submit', (event) => {
 
 function reviewPlan() {
   const budget = draftBudget(plan, draft);
-  return { ...inspectPlan(plan, budget), budget };
+  const prices = viewingConfirmed ? activeTrip.confirmed.prices : undefined;
+  return { ...inspectPlan(plan, budget, prices), budget };
 }
 
 function warning(text) {
@@ -356,6 +388,9 @@ function warning(text) {
 }
 
 function summaryMarkup(review) {
+  const count = participantCount(viewingConfirmed ? activeTrip.confirmed : activeTrip.draft);
+  const groupTotal = Number.isSafeInteger(review.total) ? BigInt(review.total) * BigInt(count) : review.total * count;
+  const costLabel = review.missingCostCount ? 'Chi phí đã biết' : 'Chi phí ước tính';
   const { startDate, endDate } = plan.request;
   const tripDuration = dateIndex(endDate) - dateIndex(startDate) + 1;
   const startLabel = year(startDate) === year(endDate) && startDate !== endDate
@@ -367,9 +402,11 @@ function summaryMarkup(review) {
       <span class="summary-date">${icon('calendar')}${startLabel}${endLabel}</span>
       <span class="summary-mode">${icon('walk')}Đi bộ</span>
     </div>
+    <p class="summary-duration">${currency.format(tripDuration)} ngày · ${review.slots.length} buổi</p>
+    <p class="summary-cost-label">${costLabel}</p>
     <div class="summary-metrics">
-      <div><span>Chuyến đi</span><strong>${currency.format(tripDuration)} ngày <span>·</span> ${review.slots.length} buổi</strong></div>
-      <div><span>${review.missingCostCount ? 'Đã tính / người' : 'Ước tính / người'}</span><strong class="total">${money(review.total)}</strong></div>
+      <div><span>Mỗi người</span><strong class="total">${money(review.total)}</strong></div>
+      <div><span>Cả nhóm · ${currency.format(count)} người</span><strong class="group-total">${money(groupTotal)}</strong></div>
     </div>
     <div class="budget-line"><span>${icon('wallet')} Ngân sách cả lịch</span><strong>${money(review.budget)} / người</strong></div>
   </div>
@@ -423,6 +460,7 @@ function dropMarkup(slot, eligible, stop) {
 
 function stopMarkup(slot, stop, index, opened, destinations) {
   const { place, arrival, departure, walkToNext, wait, issues } = stop;
+  const cost = placeCost(place.id, viewingConfirmed ? activeTrip.confirmed.prices : undefined);
   const hours = openingHours(place, slot.date)
     .map((window) => `${window.start}–${window.end}`).join(', ') || (place.hours?.length ? 'Đóng cửa hôm đó' : 'Chưa có giờ mở cửa');
   const area = areas.find((item) => item.id === place.area).label;
@@ -443,7 +481,7 @@ function stopMarkup(slot, stop, index, opened, destinations) {
           ${place.crowd ? `<div><dt>Độ đông mẫu</dt><dd>${place.crowd}</dd></div>` : ''}
         </dl>
       </details>
-      <span class="stop-price">${hasKnownCost(place) ? (place.cost ? money(place.cost) : 'Miễn phí') : 'Chưa có giá'}</span>
+      <span class="stop-price">${cost === null ? 'Chưa có giá' : cost ? money(cost) : 'Miễn phí'}</span>
     </div>
     ${issues.map((issue) => warning(stopIssue(issue))).join('')}
     ${wait ? `<p class="stop-wait">${icon('clock')} ${stop.fixedStart === undefined ? 'Chờ mở cửa' : 'Chờ đến giờ cố định'} ${wait} phút</p>` : ''}
@@ -906,6 +944,7 @@ function renderRoute(focus = false, previousHash = '') {
     $('itinerary-title').textContent = viewingConfirmed ? 'Lịch đã chốt' : 'Lịch nháp';
     $('trip-version-guidance').textContent = viewingConfirmed ? 'Mở Nháp để chỉnh tiếp lịch.' : 'Nháp tự lưu trên trình duyệt này.';
     if (!viewingConfirmed) {
+      participants.value = participantCount(state);
       for (const detail of form.querySelectorAll('details[open]')) detail.open = false;
       syncDraft();
       renderErrors();
@@ -1019,6 +1058,11 @@ $('rename-form').addEventListener('submit', (event) => {
 });
 
 $('confirm-plan').addEventListener('click', () => {
+  if (!validateParticipants()) {
+    renderErrors();
+    participants.focus();
+    return;
+  }
   const wasConfirmed = Boolean(activeTrip.confirmed);
   const saved = trips.confirm(activeTrip.id);
   if (!saved) return;

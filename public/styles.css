@@ -560,7 +560,9 @@ input[aria-invalid="true"] { border-color: var(--accent-strong); }
 .note summary svg { width: .95rem; height: .95rem; }
 .note-saved { color: var(--green); }
 .note textarea { resize: vertical; margin-bottom: .3rem; }
-.currency-input { position: relative; max-width: 22rem; }
+.budget-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .25rem .7rem; }
+.budget-fields > [data-note] { grid-column: 1 / -1; }
+.currency-input { position: relative; }
 .currency-input > span { position: absolute; inset: 0 .65rem 0 auto; display: grid; align-items: center; color: var(--muted); pointer-events: none; }
 .currency-input input { padding-right: 2rem; font-variant-numeric: tabular-nums; }
 .currency-input input::-webkit-inner-spin-button { margin-right: .14rem; }
@@ -595,12 +597,13 @@ button, .choice > span, .stop-chevron { transition: background-color 145ms ease,
 .summary-date { font-size: .81rem; font-weight: 720; color: var(--green); }
 .summary-mode { border: 1px solid #a5af9b; border-radius: 50rem; padding: .12rem .45rem; color: var(--green); font-size: .75rem; font-weight: 710; }
 .summary-top svg, .budget-line svg { width: .93rem; height: .93rem; }
-.summary-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin-block: .65rem; }
+.summary-duration { margin-top: .2rem; color: var(--green); font-size: .79rem; }
+.summary-cost-label { margin-top: .65rem; color: var(--green); font-size: .875rem; font-weight: 700; }
+.summary-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; margin-block: .2rem .65rem; }
 .summary-metrics > div { display: grid; align-content: start; }
 .summary-metrics > div > span { font-size: .79rem; color: var(--green); }
 .summary-metrics strong { font: 600 clamp(1.1rem, 3.8vw, 1.73rem)/1.22 var(--serif); letter-spacing: -.045em; overflow-wrap: anywhere; }
-.summary-metrics strong span { font-family: var(--sans); font-weight: 400; }
-.summary-metrics .total { color: var(--accent-strong); font-variant-numeric: tabular-nums; }
+.summary-metrics strong { color: var(--accent-strong); font-variant-numeric: tabular-nums; }
 .budget-line { padding-top: .58rem; border-top: 1px solid #bfc9b6; color: var(--green); font-size: .79rem; }
 .budget-line strong { font-weight: 700; overflow-wrap: anywhere; }
 

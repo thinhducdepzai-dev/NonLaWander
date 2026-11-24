@@ -320,14 +320,21 @@
               <div data-note="mustVisit" data-label="địa điểm"></div>
             </fieldset>
 
-            <div class="field budget-field">
-              <label for="budget">Ngân sách cả lịch / người</label>
-              <div class="currency-input">
-                <input type="number" inputmode="numeric" min="0" step="1" required id="budget" name="budget" aria-describedby="budget-hint error-budget">
-                <span aria-hidden="true">₫</span>
+            <div class="budget-fields">
+              <div class="field">
+                <label for="budget">Ngân sách mỗi người</label>
+                <div class="currency-input">
+                  <input type="number" inputmode="numeric" min="0" step="1" required id="budget" name="budget" aria-describedby="budget-hint error-budget">
+                  <span aria-hidden="true">₫</span>
+                </div>
+                <p id="budget-hint" class="helper">Cho toàn bộ chuyến đi.</p>
+                <p class="field-error" id="error-budget" hidden></p>
               </div>
-              <p id="budget-hint" class="helper">Tổng tiền dự kiến cho các điểm trong cả chuyến.</p>
-              <p class="field-error" id="error-budget" hidden></p>
+              <div class="field">
+                <label for="participants">Số người tham gia</label>
+                <input type="number" inputmode="numeric" min="1" step="1" required id="participants" name="participants" aria-describedby="error-participants">
+                <p class="field-error" id="error-participants" hidden></p>
+              </div>
               <div data-note="budget" data-label="ngân sách"></div>
             </div>
 
