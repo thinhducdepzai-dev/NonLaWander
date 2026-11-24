@@ -1,6 +1,6 @@
 import { areas, exampleDraft, periodById, periods, placeById, places, transports, vibes } from './data.js';
 import { icon } from './icons.js';
-import { getLibraryReturn, renderLibrary, setupLibraryAdd } from './library.js';
+import { getLibraryReturn, renderLibrary, setupLibraryActions, tripLibraryHref } from './library.js';
 import { applyEdit, clock, createPlan, dateAt, dateIndex, draftBudget, hasKnownCost, inspectPlan, moveDestinations, openingHours, prepareRequest, weekday } from './planner.js';
 import { setupReplacement } from './replace-visit.js';
 import { createTripStore, hasDraftChanges } from './trips.js';
@@ -567,6 +567,7 @@ function renderEditedTrip(trip) {
   if (formChanged) syncDraft();
   updateTripControls();
   showStorageStatus();
+  renderSavedPlaces();
   renderPlan();
 }
 
@@ -719,6 +720,48 @@ function tripHash(id, confirmed = false, returnHref) {
   return returnHref ? `${path}?${new URLSearchParams({ library: returnHref })}` : path;
 }
 
+function savedPlacesHash(id) {
+  return `${tripHash(id)}?saved=1`;
+}
+
+function renderSavedPlaces() {
+  const { id, savedPlaceIds } = activeTrip;
+  $('trip-saved-library').href = tripLibraryHref(id);
+  $('trip-saved-empty').hidden = !!savedPlaceIds.length;
+  $('trip-saved-list').replaceChildren(...savedPlaceIds.map((placeId) => {
+    const place = placeById[placeId];
+    const item = $('trip-saved-item').content.firstElementChild.cloneNode(true);
+    const details = item.querySelector('.trip-saved-place');
+    details.href = tripLibraryHref(id, placeId);
+    details.querySelector('.trip-saved-icon').innerHTML = icon(place.icon);
+    details.querySelector('strong').textContent = place.name;
+    const area = areas.find((entry) => entry.id === place.area)?.label;
+    details.querySelector('small').textContent = [place.category, area].filter(Boolean).join(' · ');
+    const add = item.querySelector('.trip-saved-add');
+    add.href = tripLibraryHref(id, placeId, true);
+    add.setAttribute('aria-label', `Thêm ${place.name} vào lịch`);
+    const remove = item.querySelector('.trip-saved-remove');
+    remove.dataset.placeId = placeId;
+    remove.setAttribute('aria-label', `Bỏ lưu ${place.name}`);
+    return item;
+  }));
+}
+
+$('trip-saved-list').addEventListener('click', (event) => {
+  const button = event.target.closest('.trip-saved-remove');
+  if (!button || !activeTrip) return;
+  const { placeId } = button.dataset;
+  const index = activeTrip.savedPlaceIds.indexOf(placeId);
+  const trip = trips.setSavedPlace(activeTrip.id, placeId, false);
+  if (!trip) return;
+  activeTrip = trip;
+  renderSavedPlaces();
+  showStorageStatus();
+  const remaining = $('trip-saved-list').querySelectorAll('.trip-saved-remove');
+  (remaining[Math.min(index, remaining.length - 1)] ?? $('trip-saved-title')).focus();
+  announce(`Đã bỏ lưu ${placeById[placeId].name}.`);
+});
+
 function tripDates(trip) {
   const { startDate, endDate } = trip.draft.form;
   const first = Number.isInteger(dateIndex(startDate)) ? `${shortDate(startDate)}/${year(startDate)}` : '';
@@ -806,9 +849,10 @@ function renderRoute(focus = false, previousHash = '') {
   const previousId = activeTrip?.id;
   const { hash } = location;
   const [path, search] = hash.split('?', 2);
+  const params = new URLSearchParams(search);
   const route = path.match(/^#trip\/([a-z0-9-]+)(\/confirmed)?$/);
   activeTrip = route ? trips.get(route[1]) : null;
-  libraryReturn = activeTrip ? getLibraryReturn(new URLSearchParams(search).get('library')) : null;
+  libraryReturn = activeTrip ? getLibraryReturn(params.get('library')) : null;
   const showProjects = !activeTrip && (hash === '#trips' || hash.startsWith('#trip/'));
   const showLibrary = /^#library(?:[/?]|$)/.test(hash);
   const showHome = !activeTrip && !showProjects && !showLibrary;
@@ -818,6 +862,7 @@ function renderRoute(focus = false, previousHash = '') {
   $('home-view').hidden = !showHome;
   $('trip-list-view').hidden = !showProjects;
   $('trip-header').hidden = !activeTrip;
+  $('trip-saved').hidden = !activeTrip;
   $('trip-workspace').hidden = !activeTrip;
   $('site-footer').hidden = showHome || showLibrary;
   $('home-link').setAttribute('aria-current', showHome ? 'page' : 'false');
@@ -849,13 +894,14 @@ function renderRoute(focus = false, previousHash = '') {
     timeline.replaceChildren();
     updateTripControls();
     renderTripLibraryContext();
+    renderSavedPlaces();
     renderPlan();
     if (focus) {
       if (!viewingConfirmed && libraryReturn?.place) {
         const firstError = Object.keys(errors)[0];
         const field = firstError ?? libraryReturn.field ?? 'sessions';
         focusTripField(field);
-      } else $('trip-title').focus();
+      } else $(params.get('saved') === '1' ? 'trip-saved-title' : 'trip-title').focus();
     }
   } else if (showProjects) {
     if (hash !== '#trips') history.replaceState(null, '', '#trips');
@@ -866,7 +912,7 @@ function renderRoute(focus = false, previousHash = '') {
       (previous || $('trip-list-title')).focus();
     }
   } else if (showLibrary) {
-    renderLibrary(hash, focus, previousHash, renderLibraryAdd);
+    renderLibrary(hash, focus, previousHash, renderLibraryActions, savedPlacesHash);
   } else {
     document.title = 'Home · NonLa Wander';
     renderHome();
@@ -881,9 +927,10 @@ function renderRoute(focus = false, previousHash = '') {
 function renderTripLibraryContext() {
   const added = addedVisitNotice?.tripId === activeTrip.id ? addedVisitNotice.placeName : '';
   addedVisitNotice = null;
-  $('trip-library-context').hidden = !libraryReturn;
+  $('trip-library-context').hidden = !libraryReturn && !added;
   $('trip-library-message').hidden = !added;
   $('trip-library-message').textContent = added ? `Đã thêm ${added} vào bản nháp.` : '';
+  $('trip-library-return').hidden = !libraryReturn;
   if (!libraryReturn) return;
   const link = $('trip-library-return');
   link.href = libraryReturn.href;
@@ -900,8 +947,8 @@ for (const button of document.querySelectorAll('[data-create-trip]')) {
   button.addEventListener('click', () => createTrip());
 }
 
-const renderLibraryAdd = setupLibraryAdd({
-  trips, createTrip, tripHash,
+const renderLibraryActions = setupLibraryActions({
+  trips, createTrip, tripHash, savedPlacesHash, showStorageStatus,
   showAdded(tripId, placeName, returnHref) {
     addedVisitNotice = { tripId, placeName };
     location.hash = tripHash(tripId, false, returnHref);

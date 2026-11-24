@@ -84,6 +84,7 @@
     </section>
 
     <section id="library-view" class="library-view" aria-labelledby="library-title" hidden>
+      <a id="library-trip-back" class="back-link library-trip-back" hidden>Quay về địa điểm đã lưu</a>
       <header class="library-heading">
         <h1 id="library-title" tabindex="-1">Thư viện địa điểm</h1>
         <p>Khám phá các điểm ghé quanh Hồ Gươm và Phố cổ.</p>
@@ -130,19 +131,27 @@
     </section>
 
     <section id="library-detail" class="library-view" aria-labelledby="library-detail-title" hidden>
-      <a id="library-back" class="back-link" href="#library"><span aria-hidden="true">←</span> Quay về thư viện</a>
+      <a id="library-back" class="back-link" href="#library"><span aria-hidden="true">←</span> <span id="library-back-label">Quay về thư viện</span></a>
       <header class="library-heading">
         <p id="library-detail-category" class="library-detail-category"></p>
         <h1 id="library-detail-title" tabindex="-1"></h1>
         <p id="library-detail-description"></p>
         <p id="library-detail-demo" class="library-demo"><span data-icon="info"></span>Dữ liệu demo. Chi phí và giờ mở cửa chỉ để tham khảo.</p>
       </header>
-      <button type="button" id="library-add-toggle" class="primary-button library-add-toggle" aria-controls="library-add" aria-expanded="false" hidden><span data-icon="plus"></span>Thêm vào lịch</button>
+      <div class="library-detail-actions">
+        <button type="button" id="library-add-toggle" class="primary-button" aria-controls="library-add" aria-expanded="false" hidden><span data-icon="plus"></span>Thêm vào lịch</button>
+        <button type="button" id="library-save-toggle" class="text-button" aria-controls="library-save" aria-expanded="false" hidden><span data-icon="bookmark"></span>Lưu vào chuyến</button>
+      </div>
+      <div id="library-saved-status" class="library-saved-status" role="status" aria-atomic="true" hidden>
+        <p>Đã lưu vào</p>
+        <ul id="library-saved-trips" role="list"></ul>
+      </div>
       <section id="library-add" class="library-add" aria-labelledby="library-add-title" hidden>
         <h2 id="library-add-title">Chọn chuyến và buổi</h2>
         <form id="library-add-form">
+          <p id="library-add-trip-context" class="library-add-guidance" hidden></p>
           <div id="library-add-fields" class="library-add-fields">
-            <div class="field">
+            <div id="library-trip-field" class="field">
               <label for="library-trip-select">Chuyến đi</label>
               <select id="library-trip-select"></select>
             </div>
@@ -157,6 +166,21 @@
             <button type="submit" id="library-add-submit" class="primary-button">Thêm địa điểm</button>
             <button type="button" id="library-add-create" class="primary-button" hidden>Tạo chuyến đi</button>
             <a id="library-add-configure" class="back-link" hidden>Thiết lập buổi trong bản nháp</a>
+          </div>
+        </form>
+      </section>
+      <section id="library-save" class="library-add" aria-labelledby="library-save-title" hidden>
+        <h2 id="library-save-title">Lưu để xếp lịch sau</h2>
+        <form id="library-save-form">
+          <div id="library-save-field" class="field">
+            <label for="library-save-trip">Chuyến đi</label>
+            <select id="library-save-trip"></select>
+          </div>
+          <p id="library-save-guidance" class="library-add-guidance" hidden></p>
+          <p id="library-save-error" class="error-box" role="alert" hidden></p>
+          <div class="library-add-actions">
+            <button type="submit" id="library-save-submit" class="primary-button">Lưu địa điểm</button>
+            <button type="button" id="library-save-create" class="text-button">Tạo chuyến và lưu</button>
           </div>
         </form>
       </section>
@@ -214,6 +238,24 @@
         <a id="confirmed-link">Bản đã chốt</a>
         <span id="draft-changed" class="chip-count" hidden>Có thay đổi trong nháp</span>
       </nav>
+    </section>
+
+    <section id="trip-saved" class="trip-saved paper-panel" aria-labelledby="trip-saved-title" hidden>
+      <div class="trip-saved-heading">
+        <h2 id="trip-saved-title" tabindex="-1">Địa điểm đã lưu</h2>
+        <a id="trip-saved-library" class="back-link">Khám phá Library <span aria-hidden="true">→</span></a>
+      </div>
+      <p id="trip-saved-empty" class="helper">Tìm một địa điểm trong Library rồi lưu vào chuyến để xếp lịch sau.</p>
+      <ul id="trip-saved-list" class="trip-saved-list" role="list"></ul>
+      <template id="trip-saved-item">
+        <li>
+          <a class="trip-saved-place"><span class="trip-saved-icon"></span><span><strong></strong><small></small></span></a>
+          <div class="trip-saved-actions">
+            <a class="text-button trip-saved-add">Thêm vào lịch</a>
+            <button type="button" class="text-button trip-saved-remove">Bỏ lưu</button>
+          </div>
+        </li>
+      </template>
     </section>
 
     <div id="trip-workspace" class="planner-layout" hidden>

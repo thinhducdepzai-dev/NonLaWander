@@ -607,3 +607,84 @@ test('a change to the affected route requires reviewing the new preview before a
   assert.equal(storage.getItem(key), before);
   assert.ok(store.replaceVisit(id, command, refreshed.fingerprint).trip);
 });
+
+test('creating a trip with a saved place keeps the trip unscheduled and reopens with the place', () => {
+  const storage = memoryStorage();
+  const store = createTripStore(storage);
+  const trip = store.create({ savedPlaceId: 'dinh-cafe' });
+
+  assert.equal(trip.draft.form.startDate, '');
+  assert.equal(trip.draft.form.endDate, '');
+  assert.deepEqual(trip.draft.form.days, {});
+  assert.equal(trip.draft.plan, null);
+  assert.deepEqual(trip.savedPlaceIds, ['dinh-cafe']);
+  assert.deepEqual(createTripStore(storage).get(trip.id), trip);
+});
+
+test('saving a place twice in an existing blank trip keeps only one entry', () => {
+  const storage = memoryStorage();
+  const store = createTripStore(storage);
+  const { id, draft } = store.create();
+  const first = store.setSavedPlace(id, 'dinh-cafe', true);
+  const second = store.setSavedPlace(id, 'dinh-cafe', true);
+
+  assert.deepEqual(first, second);
+  assert.deepEqual(second.draft, draft);
+  assert.deepEqual(createTripStore(storage).get(id).savedPlaceIds, ['dinh-cafe']);
+  assert.equal(store.setSavedPlace(id, 'unknown-place', true), null);
+  assert.equal(store.create({ savedPlaceId: 'unknown-place' }), null);
+});
+
+test('a place saved in two trips is managed independently', () => {
+  const storage = memoryStorage();
+  const store = createTripStore(storage);
+  const first = store.create();
+  const second = store.create({ savedPlaceId: 'ngoc-son' });
+  store.setSavedPlace(first.id, 'ngoc-son', true);
+
+  const reopened = createTripStore(storage);
+  assert.deepEqual(reopened.get(first.id).savedPlaceIds, ['ngoc-son']);
+  assert.deepEqual(reopened.get(second.id).savedPlaceIds, ['ngoc-son']);
+  reopened.setSavedPlace(first.id, 'ngoc-son', false);
+  assert.deepEqual(reopened.get(first.id).savedPlaceIds, []);
+  assert.deepEqual(reopened.get(second.id), second);
+});
+
+test('a trip stored before saved places existed reopens with an empty list and its original itineraries', () => {
+  const storage = memoryStorage();
+  const store = createTripStore(storage);
+  const { id } = store.create();
+  store.saveDraft(id, sampleDraft());
+  const { savedPlaceIds, ...oldTrip } = store.confirm(id);
+  assert.deepEqual(savedPlaceIds, []);
+  const key = tripStoragePrefix + id;
+  storage.setItem(key, JSON.stringify(oldTrip));
+
+  const reopened = createTripStore(storage);
+  assert.deepEqual(reopened.get(id), { ...oldTrip, savedPlaceIds: [] });
+  assert.equal(storage.getItem(key), JSON.stringify(oldTrip));
+});
+
+test('unsaving a place preserves independent visits in the draft and the confirmed itinerary', () => {
+  const storage = memoryStorage();
+  const store = createTripStore(storage);
+  const placeId = 'dinh-cafe';
+  const { id, draft } = store.create({ savedPlaceId: placeId });
+  store.saveDraft(id, { ...draft, form: exampleDraft() });
+  const slotId = '2026-11-27-morning';
+  store.addVisit(id, { slotId, placeId });
+  store.addVisit(id, { slotId, placeId });
+  const before = store.confirm(id);
+  const [first, second] = before.draft.plan.slots[0].stops;
+  assert.deepEqual(before.savedPlaceIds, [placeId]);
+  assert.equal(first.placeId, placeId);
+  assert.equal(second.placeId, placeId);
+  assert.notEqual(first.id, second.id);
+
+  const reopened = createTripStore(storage);
+  reopened.setSavedPlace(id, placeId, false);
+  const saved = createTripStore(storage).get(id);
+
+  assert.deepEqual(saved, { ...before, savedPlaceIds: [] });
+  assert.equal(hasDraftChanges(saved), false);
+});

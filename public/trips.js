@@ -92,7 +92,7 @@ function blankDraft() {
 }
 
 function newTrip(id, name = defaultName, draft = blankDraft()) {
-  return { version: 2, id, name, createdAt: Date.now(), draft, confirmed: null };
+  return { version: 2, id, name, createdAt: Date.now(), draft, confirmed: null, savedPlaceIds: [] };
 }
 
 function planSnapshot({ form, plan }) {
@@ -126,7 +126,9 @@ export function createTripStore(storage) {
   function readTrip(id) {
     if (!tripIdPattern.test(id)) return null;
     const trip = read(tripStoragePrefix + id);
-    return isTrip(trip, id) ? trip : null;
+    if (!isTrip(trip, id)) return null;
+    const saved = Array.isArray(trip.savedPlaceIds) ? trip.savedPlaceIds.filter(isPlace) : [];
+    return { ...trip, savedPlaceIds: [...new Set(saved)] };
   }
 
   function get(id) {
@@ -175,11 +177,22 @@ export function createTripStore(storage) {
     }));
   }
 
-  function create() {
+  function create({ savedPlaceId } = {}) {
+    if (savedPlaceId !== undefined && !isPlace(savedPlaceId)) return null;
     // getRandomValues also works when this dev server is opened over local-network HTTP.
     const bytes = crypto.getRandomValues(new Uint8Array(16));
     const id = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
-    return write(newTrip(id));
+    const trip = newTrip(id);
+    if (savedPlaceId) trip.savedPlaceIds.push(savedPlaceId);
+    return write(trip);
+  }
+
+  function setSavedPlace(id, placeId, saved) {
+    if (!isPlace(placeId)) return null;
+    const trip = get(id);
+    if (!trip || trip.savedPlaceIds.includes(placeId) === saved) return trip;
+    const savedPlaceIds = saved ? [...trip.savedPlaceIds, placeId] : trip.savedPlaceIds.filter((item) => item !== placeId);
+    return write({ ...trip, savedPlaceIds });
   }
 
   function rename(id, name) {
@@ -260,7 +273,7 @@ export function createTripStore(storage) {
   }
 
   return {
-    list, get, create, rename, saveDraft, addVisit, moveVisit: moveDraftVisit,
+    list, get, create, rename, saveDraft, setSavedPlace, addVisit, moveVisit: moveDraftVisit,
     previewReplacement: previewDraftReplacement, replaceVisit: replaceDraftVisit, confirm, migrateLegacy,
     get storageProblem() { return readFailed || unsaved.size > 0; },
   };
