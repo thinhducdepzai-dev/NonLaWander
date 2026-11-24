@@ -306,6 +306,17 @@ main.wrapper { flex: 1; }
 #library-detail-hours li + li { margin-top: .35rem; }
 #library-detail-hours li span { display: block; font-size: .8125rem; font-weight: 500; }
 .library-detail-note { padding-top: .65rem; border-top: 1px solid var(--dashboard-line); color: var(--dashboard-muted); font-size: .875rem; }
+.library-add-toggle.primary-button { width: auto; min-height: 44px; margin-top: 1.25rem; }
+.library-add { max-width: 42rem; margin-top: 1rem; padding: clamp(1rem, 3vw, 1.5rem); border: 1px solid var(--dashboard-line); border-radius: var(--radius); background: var(--dashboard-card); }
+#library-add-form { display: grid; gap: .85rem; margin-top: .75rem; }
+.library-add-fields { display: grid; gap: .75rem; }
+.library-add-fields > div { min-width: 0; }
+.library-add select { width: 100%; min-width: 0; min-height: 44px; padding: .5rem .65rem; border: 1px solid var(--control-line); border-radius: var(--small-radius); background: var(--dashboard-card); color: var(--dashboard-ink); font: inherit; cursor: pointer; }
+.library-add-guidance { color: var(--dashboard-muted); font-size: .9rem; }
+.library-add-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem 1rem; }
+.library-add-actions .primary-button { width: auto; min-height: 44px; }
+.trip-library-context { margin-top: .6rem; padding: .5rem .75rem; border-left: 3px solid var(--dashboard-green); border-radius: var(--small-radius); background: var(--dashboard-mist); }
+.trip-library-context p { color: var(--dashboard-green); font-weight: 650; }
 
 .hero { display: grid; gap: 1.3rem; align-items: center; padding-block: 1.5rem 1.4rem; border-bottom: 1px solid var(--line); }
 .eyebrow { display: flex; align-items: center; gap: .38rem; color: var(--accent-strong); font-size: .76rem; font-weight: 750; letter-spacing: .11em; text-transform: uppercase; }
@@ -622,6 +633,7 @@ button, .choice > span, .stop-chevron { transition: background-color 145ms ease,
   .library-place { grid-template-columns: 2.5rem minmax(0, 1fr) auto auto; grid-template-areas: 'icon info price next'; gap: .8rem; padding: .75rem .9rem; }
   .library-place-icon { width: 2.5rem; height: 2.5rem; }
   .library-detail-content dl > div { grid-template-columns: minmax(0, .8fr) minmax(0, 1fr); }
+  .library-add-fields { grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); }
   #home-view, .home-lead { gap: 2.125rem; }
   .home-lead { grid-template-columns: minmax(0, 1fr) minmax(17.5rem, 35%); }
   .home-lead::before { content: ''; grid-area: 1 / 1 / 2 / -1; border-radius: var(--radius); background: var(--dashboard-green); }

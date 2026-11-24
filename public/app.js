@@ -1,7 +1,7 @@
 import { areas, exampleDraft, periodById, periods, places, transports, vibes } from './data.js';
 import { icon } from './icons.js';
-import { renderLibrary } from './library.js';
-import { applyEdit, clock, createPlan, dateAt, dateIndex, inspectPlan, openingHours, prepareRequest, weekday } from './planner.js';
+import { getLibraryReturn, renderLibrary, setupLibraryAdd } from './library.js';
+import { applyEdit, clock, createPlan, dateAt, dateIndex, hasKnownCost, inspectPlan, openingHours, prepareRequest, weekday } from './planner.js';
 import { createTripStore, hasDraftChanges } from './trips.js';
 
 const $ = (id) => document.getElementById(id);
@@ -32,6 +32,8 @@ let dayPage = 0;
 let editing = false;
 let undo = null;
 let errors = {};
+let libraryReturn = null;
+let addedVisitNotice = null;
 
 function save() {
   if (!activeTrip || viewingConfirmed) return;
@@ -287,18 +289,21 @@ days.addEventListener('click', (event) => {
   (corresponding ?? days.querySelector('[data-page]:enabled')).focus({ preventScroll: true });
 });
 
-$('form-errors').addEventListener('click', (event) => {
-  const link = event.target.closest('[data-error-link]');
-  if (!link) return;
-  event.preventDefault();
-  const id = link.dataset.errorLink;
+function focusTripField(id) {
   if (!$(id) && /^(start|end)-\d{4}-\d{2}-\d{2}-/.test(id)) {
     const date = id.match(/\d{4}-\d{2}-\d{2}/)[0];
     dayPage = Math.floor((dateIndex(date) - dateIndex(draft.startDate)) / dayPageSize);
     renderDays();
   }
   if (id === 'transport') form.querySelector('input[name="transport"]:checked')?.focus();
-  else $(id)?.focus();
+  else ($(id) ?? $('sessions')).focus();
+}
+
+$('form-errors').addEventListener('click', (event) => {
+  const link = event.target.closest('[data-error-link]');
+  if (!link) return;
+  event.preventDefault();
+  focusTripField(link.dataset.errorLink);
 });
 
 $('load-example').addEventListener('click', () => {
@@ -358,10 +363,11 @@ function summaryMarkup(review) {
     </div>
     <div class="summary-metrics">
       <div><span>Chuyến đi</span><strong>${currency.format(tripDuration)} ngày <span>·</span> ${review.slots.length} buổi</strong></div>
-      <div><span>Ước tính / người</span><strong class="total">${money(review.total)}</strong></div>
+      <div><span>${review.missingCostCount ? 'Đã tính / người' : 'Ước tính / người'}</span><strong class="total">${money(review.total)}</strong></div>
     </div>
     <div class="budget-line"><span>${icon('wallet')} Ngân sách cả lịch</span><strong>${money(review.budget)} / người</strong></div>
   </div>
+  ${review.missingCostCount ? warning(`Còn ${review.missingCostCount} lượt ghé chưa có giá.`) : ''}
   ${review.overBudget ? warning(`Vượt ngân sách ${money(review.overBudget)} / người. Bỏ điểm hoặc điều chỉnh ngân sách.`) : ''}
   ${review.missing.length ? warning(`Điểm muốn ghé chưa có trong lịch: ${review.missing.map((place) => place.name).join(', ')}. Thử đổi khung giờ hoặc ngân sách, hay hoàn tác nếu vừa bỏ điểm.`) : ''}`;
 }
@@ -369,7 +375,7 @@ function summaryMarkup(review) {
 function stopMarkup(slot, stop, index, opened) {
   const { place, arrival, departure, walkToNext, wait, issues } = stop;
   const hours = openingHours(place, slot.date)
-    .map((window) => `${window.start}–${window.end}`).join(', ') || 'Đóng cửa hôm đó';
+    .map((window) => `${window.start}–${window.end}`).join(', ') || (place.hours?.length ? 'Đóng cửa hôm đó' : 'Chưa có giờ mở cửa');
   const area = areas.find((item) => item.id === place.area).label;
   return `<li class="stop">
     <div class="stop-row">
@@ -383,20 +389,27 @@ function stopMarkup(slot, stop, index, opened) {
         <dl>
           <div><dt>Giờ mở cửa mẫu</dt><dd>${hours}</dd></div>
           <div><dt>Giờ rời điểm</dt><dd>${clock(departure)}</dd></div>
+          <div><dt>Thời lượng ghé</dt><dd>${place.duration} phút</dd></div>
           ${place.crowd ? `<div><dt>Độ đông mẫu</dt><dd>${place.crowd}</dd></div>` : ''}
         </dl>
       </details>
-      <span class="stop-price">${place.cost ? money(place.cost) : 'Miễn phí'}</span>
+      <span class="stop-price">${hasKnownCost(place) ? (place.cost ? money(place.cost) : 'Miễn phí') : 'Chưa có giá'}</span>
     </div>
-    ${issues.map(({ code, end }) => warning(code === 'opening' ? 'Lượt ghé nằm ngoài giờ mở cửa mẫu.' : `Vượt giờ kết thúc buổi (${clock(end)}).`)).join('')}
-    ${wait ? `<p class="stop-wait">${icon('clock')} Chờ mở cửa ${wait} phút</p>` : ''}
+    ${issues.map((issue) => warning(stopIssue(issue))).join('')}
+    ${wait ? `<p class="stop-wait">${icon('clock')} ${stop.fixedStart === undefined ? 'Chờ mở cửa' : 'Chờ đến giờ cố định'} ${wait} phút</p>` : ''}
     ${editing ? `<div class="stop-actions" role="group" aria-label="Sửa ${place.name}">
       ${editButton('up', 'Lên', slot, stop, index === 0)}
       ${editButton('down', 'Xuống', slot, stop, index === slot.stops.length - 1)}
       ${editButton('remove', 'Bỏ', slot, stop)}
     </div>` : ''}
-    ${walkToNext === null ? '' : `<p class="walk-leg">${icon('walk')} ${walkToNext} phút đi bộ đến điểm kế</p>`}
+    ${walkToNext ? `<p class="walk-leg">${icon('walk')} ${walkToNext} phút đi bộ đến điểm kế</p>` : ''}
   </li>`;
+}
+
+function stopIssue(issue) {
+  if (issue.code === 'opening') return 'Lượt ghé nằm ngoài giờ mở cửa mẫu.';
+  if (issue.code === 'fixed') return `Không thể đến đúng giờ cố định ${clock(issue.start)}. Sớm nhất là ${clock(issue.ready)}.`;
+  return `Vượt giờ kết thúc buổi (${clock(issue.end)}).`;
 }
 
 function editButton(action, label, slot, stop, disabled = false) {
@@ -408,7 +421,7 @@ function editButton(action, label, slot, stop, disabled = false) {
 function slotMarkup(slot, opened) {
   const period = periodById[slot.period];
   let shortage = '';
-  if (!slot.stops.length) shortage = 'Buổi này còn trống. Chưa xếp được điểm phù hợp từ dữ liệu demo. Thử đổi giờ, ngân sách hoặc các buổi đã chọn.';
+  if (!slot.stops.length) shortage = 'Buổi này chưa có điểm ghé.';
   else if (slot.freeMinutes >= 45) shortage = `Dữ liệu demo còn để trống ${slot.freeMinutes} phút trong buổi này.`;
 
   return `<section class="timeline-slot" aria-labelledby="label-${slot.id}">
@@ -503,8 +516,9 @@ timeline.addEventListener('click', (event) => {
   announce(`${actionText} Lịch hiện có ${review.stopCount} điểm.${flags ? ` Có ${flags} cảnh báo về giờ hoặc ngân sách.` : ''}`);
 });
 
-function tripHash(id, confirmed = false) {
-  return `#trip/${id}${confirmed ? '/confirmed' : ''}`;
+function tripHash(id, confirmed = false, returnHref) {
+  const path = `#trip/${id}${confirmed ? '/confirmed' : ''}`;
+  return returnHref ? `${path}?${new URLSearchParams({ library: returnHref })}` : path;
 }
 
 function tripDates(trip) {
@@ -568,8 +582,8 @@ function updateTripControls() {
   const changed = hasDraftChanges(activeTrip);
   $('trip-title').textContent = name;
   $('version-links').hidden = !confirmed;
-  $('draft-link').href = tripHash(id);
-  $('confirmed-link').href = tripHash(id, true);
+  $('draft-link').href = tripHash(id, false, libraryReturn?.href);
+  $('confirmed-link').href = tripHash(id, true, libraryReturn?.href);
   $('draft-link').setAttribute('aria-current', viewingConfirmed ? 'false' : 'page');
   $('confirmed-link').setAttribute('aria-current', viewingConfirmed ? 'page' : 'false');
   $('draft-changed').hidden = !changed;
@@ -592,8 +606,10 @@ function toggleRename(show) {
 function renderRoute(focus = false, previousHash = '') {
   const previousId = activeTrip?.id;
   const { hash } = location;
-  const route = hash.match(/^#trip\/([a-z0-9-]+)(\/confirmed)?$/);
+  const [path, search] = hash.split('?', 2);
+  const route = path.match(/^#trip\/([a-z0-9-]+)(\/confirmed)?$/);
   activeTrip = route ? trips.get(route[1]) : null;
+  libraryReturn = activeTrip ? getLibraryReturn(new URLSearchParams(search).get('library')) : null;
   const showProjects = !activeTrip && (hash === '#trips' || hash.startsWith('#trip/'));
   const showLibrary = /^#library(?:[/?]|$)/.test(hash);
   const showHome = !activeTrip && !showProjects && !showLibrary;
@@ -615,12 +631,12 @@ function renderRoute(focus = false, previousHash = '') {
   }
 
   if (activeTrip) {
-    if (route[2] && !viewingConfirmed) history.replaceState(null, '', tripHash(activeTrip.id));
+    if (route[2] && !viewingConfirmed) history.replaceState(null, '', tripHash(activeTrip.id, false, libraryReturn?.href));
     const state = viewingConfirmed ? activeTrip.confirmed : activeTrip.draft;
     ({ form: draft, plan, appliedDraft, undo } = structuredClone(state));
     editing = false;
     dayPage = 0;
-    errors = {};
+    errors = !viewingConfirmed && libraryReturn?.place ? prepareRequest(draft).errors ?? {} : {};
     toggleRename(false);
     $('planner').hidden = viewingConfirmed;
     $('trip-workspace').classList.toggle('confirmed-workspace', viewingConfirmed);
@@ -632,8 +648,15 @@ function renderRoute(focus = false, previousHash = '') {
     }
     timeline.replaceChildren();
     updateTripControls();
+    renderTripLibraryContext();
     renderPlan();
-    if (focus) $('trip-title').focus();
+    if (focus) {
+      if (!viewingConfirmed && libraryReturn?.place) {
+        const firstError = Object.keys(errors)[0];
+        const field = firstError ?? libraryReturn.field ?? 'sessions';
+        focusTripField(field);
+      } else $('trip-title').focus();
+    }
   } else if (showProjects) {
     if (hash !== '#trips') history.replaceState(null, '', '#trips');
     document.title = 'My Projects · NonLa Wander';
@@ -643,7 +666,7 @@ function renderRoute(focus = false, previousHash = '') {
       (previous || $('trip-list-title')).focus();
     }
   } else if (showLibrary) {
-    renderLibrary(hash, focus, previousHash);
+    renderLibrary(hash, focus, previousHash, renderLibraryAdd);
   } else {
     document.title = 'Home · NonLa Wander';
     renderHome();
@@ -655,15 +678,35 @@ function renderRoute(focus = false, previousHash = '') {
   showStorageStatus();
 }
 
-function createTrip() {
+function renderTripLibraryContext() {
+  const added = addedVisitNotice?.tripId === activeTrip.id ? addedVisitNotice.placeName : '';
+  addedVisitNotice = null;
+  $('trip-library-context').hidden = !libraryReturn;
+  $('trip-library-message').hidden = !added;
+  $('trip-library-message').textContent = added ? `Đã thêm ${added} vào bản nháp.` : '';
+  if (!libraryReturn) return;
+  const link = $('trip-library-return');
+  link.href = libraryReturn.href;
+  link.textContent = libraryReturn.place ? `Tiếp tục thêm ${libraryReturn.place.name}` : 'Quay về danh sách Library';
+}
+
+function createTrip(resume) {
   const trip = trips.create();
-  location.hash = tripHash(trip.id);
+  location.hash = tripHash(trip.id, false, resume?.(trip.id));
   announce('Đã tạo chuyến đi mới.');
 }
 
 for (const button of document.querySelectorAll('[data-create-trip]')) {
-  button.addEventListener('click', createTrip);
+  button.addEventListener('click', () => createTrip());
 }
+
+const renderLibraryAdd = setupLibraryAdd({
+  trips, createTrip, tripHash,
+  showAdded(tripId, placeName, returnHref) {
+    addedVisitNotice = { tripId, placeName };
+    location.hash = tripHash(tripId, false, returnHref);
+  },
+});
 
 $('rename-trip').addEventListener('click', () => toggleRename($('rename-form').hidden));
 $('trip-name').addEventListener('input', (event) => {
@@ -682,7 +725,7 @@ $('confirm-plan').addEventListener('click', () => {
   const saved = trips.confirm(activeTrip.id);
   if (!saved) return;
   activeTrip = saved;
-  location.hash = tripHash(activeTrip.id, true);
+  location.hash = tripHash(activeTrip.id, true, libraryReturn?.href);
   announce(wasConfirmed ? 'Đã cập nhật lịch đã chốt.' : 'Đã chốt lịch.');
 });
 

@@ -84,10 +84,11 @@ export function prepareRequest(draft) {
 
 export function openingHours(place, date) {
   const day = new Date(dateIndex(date) * dayInMs).getUTCDay();
-  return place.hours.filter((window) => !window.days || window.days.includes(day));
+  return (place.hours ?? []).filter((window) => !window.days || window.days.includes(day));
 }
 
 export function walkMinutes(from, to) {
+  if (from.id && from.id === to.id) return 0;
   const rad = Math.PI / 180;
   const x = (from.lon - to.lon) * rad * Math.cos((from.lat + to.lat) * rad / 2);
   const y = (from.lat - to.lat) * rad;
@@ -106,17 +107,19 @@ function schedule(slot) {
     const nextOpening = hours.find((window) =>
       Math.max(ready, minutes(window.start)) + place.duration <= minutes(window.end));
     const openingArrival = nextOpening ? Math.max(ready, minutes(nextOpening.start)) : ready;
-    const arrival = openingArrival + place.duration <= slot.end ? openingArrival : ready;
+    const suggestedArrival = openingArrival + place.duration <= slot.end ? openingArrival : ready;
+    const arrival = stop.fixedStart ?? (stop.manual ? ready : suggestedArrival);
     const departure = arrival + place.duration;
     const issues = [];
+    if (arrival < ready) issues.push({ code: 'fixed', start: arrival, ready });
     if (departure > slot.end) issues.push({ code: 'window', end: slot.end });
-    if (!hours.some((window) => arrival >= minutes(window.start) && departure <= minutes(window.end))) {
+    if (place.hours?.length && !hours.some((window) => arrival >= minutes(window.start) && departure <= minutes(window.end))) {
       issues.push({ code: 'opening' });
     }
 
-    const wait = arrival - ready;
+    const wait = Math.max(0, arrival - ready);
     idle += wait;
-    ready = departure + (walkToNext ?? 0);
+    ready = Math.max(ready, departure) + (walkToNext ?? 0);
     return { ...stop, place, arrival, departure, walkToNext, wait, issues };
   });
 
@@ -143,8 +146,8 @@ function preference(place, slot, request) {
 }
 
 export function createPlan(request) {
-  const slots = request.slots.map((slot) => ({ ...slot, stops: [] }));
-  const plan = { version: 1, request, slots };
+  const plan = emptyPlan(request);
+  const { slots } = plan;
 
   let balance = request.budget;
   const used = new Set();
@@ -155,7 +158,7 @@ export function createPlan(request) {
   })).sort((a, b) => a.choices - b.choices);
 
   for (const { place } of priority) {
-    if (place.cost > balance || used.has(place.id)) continue;
+    if (!hasKnownCost(place) || place.cost > balance || used.has(place.id)) continue;
     let best;
     for (const slot of slots) {
       for (let index = 0; index <= slot.stops.length; index++) {
@@ -179,7 +182,7 @@ export function createPlan(request) {
     openSlots.sort((a, b) => (a.end - a.start) - (b.end - b.start));
     for (const slot of openSlots) {
       const candidates = places
-        .filter((place) => place.cost <= balance && !used.has(place.id))
+        .filter((place) => hasKnownCost(place) && place.cost <= balance && !used.has(place.id))
         .flatMap((place) => {
           const candidate = tryInsert(slot, place);
           if (!candidate) return [];
@@ -197,6 +200,27 @@ export function createPlan(request) {
   }
 
   return plan;
+}
+
+function emptyPlan(request) {
+  return { version: 1, request, slots: request.slots.map((slot) => ({ ...slot, stops: [] })) };
+}
+
+export function hasKnownCost(place) {
+  return Number.isFinite(place.cost) && place.cost >= 0;
+}
+
+function planCosts(slots, budget) {
+  let total = 0;
+  let missingCostCount = 0;
+  for (const slot of slots) {
+    for (const { placeId } of slot.stops) {
+      const place = placeById[placeId];
+      if (hasKnownCost(place)) total += place.cost;
+      else missingCostCount++;
+    }
+  }
+  return { total, missingCostCount, overBudget: Math.max(0, total - budget) };
 }
 
 // Lệnh dùng ID ổn định, để UI kéo thả hoặc câu lệnh có thể dùng cùng mô hình.
@@ -218,16 +242,53 @@ export function applyEdit(plan, command) {
   return { ...plan, slots: plan.slots.map((item) => item.id === slot.id ? { ...slot, stops } : item) };
 }
 
+export function appendVisit(plan, request, { slotId, placeId }) {
+  const target = request.slots.find((slot) => slot.id === slotId);
+  if (!target) return { error: 'slot' };
+  if (!Object.hasOwn(placeById, placeId)) return { error: 'place' };
+
+  const current = plan ?? emptyPlan(request);
+  const previous = current.slots.find((slot) => slot.id === slotId);
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  const id = `visit-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')}`;
+  const slot = { ...target, stops: [...(previous?.stops ?? []), { id, placeId, manual: true }] };
+  const others = current.slots.filter((item) => item.id !== slotId);
+  const slots = [...others, slot].sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start);
+
+  const conflicts = [];
+  for (const other of others) {
+    if (other.date === slot.date && slot.start < other.end && other.start < slot.end) {
+      conflicts.push({ code: 'overlap', slot: other });
+    }
+  }
+  for (const stop of schedule(slot).stops) {
+    for (const issue of stop.issues) {
+      if (issue.code !== 'opening') conflicts.push({ ...issue, placeName: stop.place.name, departure: stop.departure });
+    }
+  }
+  const { total, overBudget } = planCosts(slots, request.budget);
+  if (overBudget) conflicts.push({ code: 'budget', total, budget: request.budget, overBudget });
+  if (conflicts.length) return { conflicts };
+
+  // Apply the selected window and the current whole-trip budget while keeping the other slots from the itinerary.
+  const updatedRequest = {
+    ...current.request,
+    startDate: target.date < current.request.startDate ? target.date : current.request.startDate,
+    endDate: target.date > current.request.endDate ? target.date : current.request.endDate,
+    budget: request.budget,
+    slots: slots.map(({ id, date, period, start, end }) => ({ id, date, period, start, end })),
+  };
+  return { plan: { ...current, request: updatedRequest, slots } };
+}
+
 export function inspectPlan(plan, budget = plan.request.budget) {
   const slots = plan.slots.map(schedule);
   const stops = slots.flatMap((slot) => slot.stops);
-  const total = stops.reduce((cost, stop) => cost + stop.place.cost, 0);
   const visited = new Set(stops.map((stop) => stop.placeId));
   return {
     slots,
-    total,
+    ...planCosts(plan.slots, budget),
     stopCount: stops.length,
-    overBudget: Math.max(0, total - budget),
     missing: plan.request.mustVisit.filter((id) => placeById[id] && !visited.has(id)).map((id) => placeById[id]),
   };
 }

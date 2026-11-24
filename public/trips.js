@@ -1,5 +1,5 @@
 import { areas, periodById, placeById, transports, vibes } from './data.js';
-import { dateIndex } from './planner.js';
+import { appendVisit, dateIndex, prepareRequest } from './planner.js';
 
 export const legacyStorageKey = 'nonla-wander-v1';
 export const tripStoragePrefix = 'nonla-wander-v2:';
@@ -8,6 +8,7 @@ const defaultName = 'Chuyến đi mới';
 const noteFields = ['vibes', 'areas', 'mustVisit', 'budget', 'transport'];
 const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
 const tripIdPattern = /^[a-z0-9-]+$/;
+const visitIdPattern = /^visit-[a-f0-9]{32}$/;
 
 const isRecord = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const isDate = (value) => typeof value === 'string' && Number.isInteger(dateIndex(value));
@@ -49,7 +50,10 @@ function isPlan(plan) {
     isPreferences(request) && request.transport === 'walk' && isMoney(request.budget) &&
     isList(request.slots, (slot) => isSlot(slot, request)) &&
     isList(slots, (slot) => isSlot(slot, request) && isList(slot.stops, (stop) =>
-      isRecord(stop) && isPlace(stop.placeId) && stop.id === `visit-${stop.placeId}`));
+      isRecord(stop) && isPlace(stop.placeId) && typeof stop.id === 'string' &&
+      (stop.id === `visit-${stop.placeId}` || visitIdPattern.test(stop.id)) &&
+      (stop.manual === undefined || typeof stop.manual === 'boolean') &&
+      (stop.fixedStart === undefined || (Number.isInteger(stop.fixedStart) && stop.fixedStart >= 0 && stop.fixedStart < 24 * 60))));
 }
 
 function isUndo(undo) {
@@ -188,6 +192,24 @@ export function createTripStore(storage) {
     return trip && write({ ...trip, draft });
   }
 
+  function addVisit(id, command) {
+    const trip = get(id);
+    if (!trip) return { error: 'trip' };
+    const { request, errors } = prepareRequest(trip.draft.form);
+    if (errors) return { errors };
+    const result = appendVisit(trip.draft.plan, request, command);
+    if (!result.plan) return result;
+
+    const fullyApplied = JSON.stringify(result.plan.request) === JSON.stringify(request);
+    const draft = {
+      ...trip.draft,
+      plan: result.plan,
+      appliedDraft: fullyApplied ? JSON.stringify(trip.draft.form) : trip.draft.appliedDraft,
+      undo: null,
+    };
+    return { trip: write({ ...trip, draft }) };
+  }
+
   function confirm(id) {
     const trip = get(id);
     if (!trip?.draft.plan) return null;
@@ -195,7 +217,7 @@ export function createTripStore(storage) {
   }
 
   return {
-    list, get, create, rename, saveDraft, confirm, migrateLegacy,
+    list, get, create, rename, saveDraft, addVisit, confirm, migrateLegacy,
     get storageProblem() { return readFailed || unsaved.size > 0; },
   };
 }

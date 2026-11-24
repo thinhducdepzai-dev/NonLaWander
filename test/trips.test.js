@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { exampleDraft } from '../public/data.js';
-import { applyEdit, createPlan, inspectPlan, prepareRequest } from '../public/planner.js';
+import { applyEdit, clock, createPlan, inspectPlan, prepareRequest, walkMinutes } from '../public/planner.js';
 import { createTripStore, hasDraftChanges, legacyStorageKey, tripStoragePrefix } from '../public/trips.js';
 
 function memoryStorage() {
@@ -169,4 +169,138 @@ test('editing a draft after confirmation preserves the snapshot until explicit u
   assert.equal(updated.confirmed.form.budget, '160000');
   assert.equal(inspectPlan(updated.confirmed.plan).stopCount, 5);
   assert.deepEqual(updated.draft.undo, edited.undo);
+});
+
+test('adding the first visit starts an empty itinerary and treats opening hours as a warning', () => {
+  const storage = memoryStorage();
+  const store = createTripStore(storage);
+  const trip = store.create();
+  const command = { slotId: '2026-11-27-morning', placeId: 'cho-dem' };
+  assert.ok(store.addVisit(trip.id, command).errors.arrival);
+
+  const form = exampleDraft();
+  store.saveDraft(trip.id, { ...trip.draft, form });
+  const { trip: saved } = store.addVisit(trip.id, command);
+  const [morning, afternoon] = saved.draft.plan.slots;
+  const [stop] = morning.stops;
+  const review = inspectPlan(saved.draft.plan);
+
+  assert.match(stop.id, /^visit-[a-f0-9]{32}$/);
+  assert.equal(stop.placeId, 'cho-dem');
+  assert.equal(review.stopCount, 1);
+  assert.equal(review.total, 50_000);
+  assert.deepEqual(afternoon.stops, []);
+  assert.deepEqual(review.slots[0].stops[0].issues, [{ code: 'opening' }]);
+  assert.equal(clock(review.slots[0].stops[0].arrival), '08:00');
+  assert.equal(saved.draft.appliedDraft, JSON.stringify(form));
+  assert.deepEqual(createTripStore(storage).get(trip.id), saved);
+});
+
+test('adding to a legacy itinerary appends a distinct visit and recalculates only the selected route', () => {
+  const storage = memoryStorage();
+  const store = createTripStore(storage);
+  const { id } = store.create();
+  const draft = sampleDraft();
+  const [morning, afternoon] = draft.plan.slots;
+  draft.form.days[morning.date].morning.end = '12:00';
+  store.saveDraft(id, draft);
+
+  const { trip } = store.addVisit(id, { slotId: morning.id, placeId: 'ngoc-son' });
+  const updated = trip.draft.plan;
+  const review = inspectPlan(updated);
+  const [first, , previous, appended] = review.slots[0].stops;
+
+  assert.deepEqual(updated.slots[0].stops.slice(0, -1), morning.stops);
+  assert.deepEqual(updated.slots[1], afternoon);
+  assert.deepEqual(review.slots[1], inspectPlan(draft.plan).slots[1]);
+  assert.equal(first.id, 'visit-ngoc-son');
+  assert.equal(appended.placeId, first.placeId);
+  assert.notEqual(appended.id, first.id);
+  assert.equal(previous.walkToNext, walkMinutes(previous.place, appended.place));
+  assert.equal(appended.arrival, previous.departure + previous.walkToNext);
+  assert.equal(appended.departure - appended.arrival, appended.place.duration);
+  assert.equal(review.total, 230_000);
+  assert.equal(trip.draft.appliedDraft, JSON.stringify(draft.form));
+  assert.deepEqual(createTripStore(storage).get(id).draft.plan, updated);
+});
+
+test('a newly enabled draft slot can take a visit without replacing the existing slots', () => {
+  const storage = memoryStorage();
+  const store = createTripStore(storage);
+  const { id } = store.create();
+  const draft = sampleDraft();
+  const [morning, afternoon] = draft.plan.slots;
+  const slotId = '2026-11-27-afternoon';
+  draft.form.days[morning.date].afternoon = { enabled: true, start: '14:00', end: '17:00' };
+  store.saveDraft(id, draft);
+
+  const { trip } = store.addVisit(id, { slotId, placeId: 'ma-may' });
+  const [first, inserted, last] = trip.draft.plan.slots;
+
+  assert.deepEqual(first, morning);
+  assert.deepEqual(last, afternoon);
+  assert.equal(inserted.id, slotId);
+  assert.deepEqual(inserted.stops.map(({ placeId }) => placeId), ['ma-may']);
+  assert.equal(inspectPlan(trip.draft.plan).total, 220_000);
+});
+
+test('a window and budget conflict reports both limits without writing the draft', () => {
+  const storage = memoryStorage();
+  const store = createTripStore(storage);
+  const { id } = store.create();
+  const draft = sampleDraft();
+  const [slot] = draft.plan.slots;
+  draft.form.budget = '200000';
+  store.saveDraft(id, draft);
+  const before = storage.getItem(tripStoragePrefix + id);
+
+  const result = store.addVisit(id, { slotId: slot.id, placeId: 'pho-gia-truyen' });
+
+  assert.equal(result.trip, undefined);
+  assert.ok(result.conflicts.some(({ code, end }) => code === 'window' && end === 11 * 60));
+  assert.deepEqual(result.conflicts.find(({ code }) => code === 'budget'), {
+    code: 'budget', total: 275_000, budget: 200_000, overBudget: 75_000,
+  });
+  assert.equal(storage.getItem(tripStoragePrefix + id), before);
+  assert.deepEqual(store.get(id).draft, draft);
+});
+
+test('a fixed visit stays anchored and blocks a conflicting change to the selected window', () => {
+  const storage = memoryStorage();
+  const store = createTripStore(storage);
+  const { id } = store.create();
+  const draft = sampleDraft();
+  const [slot] = draft.plan.slots;
+  slot.stops[0].fixedStart = 8 * 60;
+  draft.form.days[slot.date].morning = { enabled: true, start: '08:30', end: '13:00' };
+  store.saveDraft(id, draft);
+
+  const result = store.addVisit(id, { slotId: slot.id, placeId: 'ho-guom' });
+
+  assert.ok(result.conflicts.some(({ code, start, ready }) => code === 'fixed' && start === 480 && ready === 510));
+  assert.deepEqual(createTripStore(storage).get(id).draft, draft);
+});
+
+test('adding to a confirmed trip only writes its draft and survives a new store instance', () => {
+  const storage = memoryStorage();
+  const store = createTripStore(storage);
+  const { id } = store.create();
+  const other = store.create();
+  const before = sampleDraft();
+  const [slot] = before.plan.slots;
+  store.saveDraft(id, before);
+  const { confirmed } = store.confirm(id);
+  store.saveDraft(id, { ...before, form: { ...before.form, days: {
+    ...before.form.days, [slot.date]: { morning: { enabled: true, start: '08:00', end: '12:00' } },
+  } } });
+
+  const { trip: updated } = store.addVisit(id, { slotId: slot.id, placeId: 'ho-guom' });
+  const reopened = createTripStore(storage);
+
+  assert.equal(hasDraftChanges(updated), true);
+  assert.equal(inspectPlan(updated.draft.plan).stopCount, 7);
+  assert.equal(inspectPlan(updated.confirmed.plan).stopCount, 6);
+  assert.deepEqual(reopened.get(id).confirmed, confirmed);
+  assert.deepEqual(reopened.get(other.id), other);
+  assert.deepEqual(reopened.get(id), updated);
 });

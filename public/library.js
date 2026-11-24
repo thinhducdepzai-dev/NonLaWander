@@ -1,5 +1,6 @@
-import { areas, placeById, places } from './data.js';
+import { areas, periodById, placeById, places } from './data.js';
 import { icon } from './icons.js';
+import { clock, hasKnownCost, prepareRequest } from './planner.js';
 
 const $ = (id) => document.getElementById(id);
 const query = $('library-query');
@@ -16,10 +17,13 @@ function foldName(value) {
   return value.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').replaceAll('đ', 'd').trim().replace(/\s+/g, ' ');
 }
 
-function libraryHref(placeId) {
+function libraryHref(placeId, options = {}) {
   const params = new URLSearchParams();
   if (query.value.trim()) params.set('q', query.value.trim());
   if (category.value) params.set('group', category.value);
+  for (const [key, value] of Object.entries(options)) {
+    if (value) params.set(key, value);
+  }
   const search = params.toString();
   return `#library${placeId ? `/${placeId}` : ''}${search ? `?${search}` : ''}`;
 }
@@ -28,8 +32,21 @@ function findPlaceId(path) {
   return path.match(/^#library\/([a-z0-9-]+)$/)?.[1];
 }
 
+export function getLibraryReturn(href) {
+  const [path, search] = (href ?? '').split('?', 2);
+  if (path === '#library') return { href };
+  const id = findPlaceId(path);
+  if (id && Object.hasOwn(placeById, id)) {
+    const params = new URLSearchParams(search);
+    const field = params.get('field');
+    const isFormField = /^(arrival|departure|sessions|budget|transport|(start|end)-\d{4}-\d{2}-\d{2}-(morning|afternoon|evening))$/.test(field);
+    return { href, place: placeById[id], field: isFormField ? field : null };
+  }
+  return null;
+}
+
 function placeCost(place) {
-  return Number.isFinite(place.cost) && place.cost >= 0 ? currency.format(place.cost) : 'Chưa có giá';
+  return hasKnownCost(place) ? currency.format(place.cost) : 'Chưa có giá';
 }
 
 function renderResults() {
@@ -111,7 +128,136 @@ function renderDetail(place) {
   renderHours(place.hours);
 }
 
-export function renderLibrary(hash, focus, previousHash) {
+function slotLabel(slot) {
+  const date = slot.date.split('-').reverse().join('/');
+  return `${periodById[slot.period].label} ${date} · ${clock(slot.start)}–${clock(slot.end)}`;
+}
+
+function conflictMessage(conflict) {
+  switch (conflict.code) {
+    case 'window': return `${conflict.placeName} dự kiến kết thúc lúc ${clock(conflict.departure)}, sau giờ kết thúc buổi ${clock(conflict.end)}.`;
+    case 'budget': return `Tổng ${currency.format(conflict.total)}/người vượt ngân sách ${currency.format(conflict.budget)}/người (vượt ${currency.format(conflict.overBudget)}).`;
+    case 'fixed': return `Không thể đến ${conflict.placeName} đúng giờ cố định ${clock(conflict.start)}. Thời điểm đến sớm nhất là ${clock(conflict.ready)}.`;
+    case 'overlap': return `Khung giờ đã chọn trùng với buổi có trong lịch: ${slotLabel(conflict.slot)}.`;
+  }
+}
+
+export function setupLibraryAdd({ trips, createTrip, tripHash, showAdded }) {
+  const toggle = $('library-add-toggle');
+  const panel = $('library-add');
+  const tripSelect = $('library-trip-select');
+  const slotSelect = $('library-slot-select');
+  const guidance = $('library-add-guidance');
+  const feedback = $('library-add-feedback');
+  const configure = $('library-add-configure');
+  let place;
+
+  function resumeHref(tripId, slotId, field) {
+    return libraryHref(place.id, { add: '1', trip: tripId, slot: slotId, field });
+  }
+
+  function offerSetup(text, slotId, field) {
+    configure.href = tripHash(tripSelect.value, false, resumeHref(tripSelect.value, slotId, field));
+    configure.textContent = text;
+    configure.hidden = false;
+  }
+
+  function renderSlots(selectedSlot) {
+    const trip = tripSelect.value ? trips.get(tripSelect.value) : null;
+    const result = trip && prepareRequest(trip.draft.form);
+    const slots = result?.request?.slots ?? [];
+    slotSelect.replaceChildren(...slots.map((slot) => new Option(slotLabel(slot), slot.id)));
+    if (slots.some((slot) => slot.id === selectedSlot)) slotSelect.value = selectedSlot;
+    $('library-slot-field').hidden = !slots.length;
+    $('library-add-submit').hidden = !slots.length;
+    configure.hidden = true;
+    feedback.hidden = true;
+    guidance.hidden = !!slots.length;
+    if (!trip) {
+      guidance.textContent = 'Tạo chuyến đi để chọn ngày, buổi và ngân sách trước khi thêm địa điểm này.';
+    } else if (result.errors) {
+      const [field, message] = Object.entries(result.errors)[0];
+      guidance.textContent = message;
+      offerSetup(field === 'budget' ? 'Thiết lập ngân sách' : 'Thiết lập ngày và buổi', selectedSlot, field);
+    }
+  }
+
+  function renderTrips(selectedTrip, selectedSlot) {
+    const available = trips.list();
+    tripSelect.replaceChildren(...available.map((trip) => new Option(trip.name, trip.id)));
+    if (available.some((trip) => trip.id === selectedTrip)) tripSelect.value = selectedTrip;
+    $('library-add-fields').hidden = !available.length;
+    $('library-add-create').hidden = !!available.length;
+    renderSlots(selectedSlot);
+  }
+
+  function setOpen(open) {
+    panel.hidden = !open;
+    toggle.setAttribute('aria-expanded', open);
+  }
+
+  toggle.addEventListener('click', () => {
+    if (!panel.hidden) {
+      setOpen(false);
+      return;
+    }
+    renderTrips(tripSelect.value, slotSelect.value);
+    setOpen(true);
+    (tripSelect.value ? tripSelect : $('library-add-create')).focus();
+  });
+  tripSelect.addEventListener('change', () => renderSlots());
+  slotSelect.addEventListener('change', () => {
+    feedback.hidden = true;
+    configure.hidden = true;
+  });
+  $('library-add-create').addEventListener('click', () => createTrip((id) => resumeHref(id)));
+  $('library-add-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (panel.hidden || !place || !slotSelect.value) return;
+    const result = trips.addVisit(tripSelect.value, { slotId: slotSelect.value, placeId: place.id });
+    if (result.trip) {
+      setOpen(false);
+      showAdded(result.trip.id, place.name, libraryHref());
+      return;
+    }
+
+    const selectedSlot = slotSelect.value;
+    if (!result.conflicts) renderTrips(tripSelect.value, selectedSlot);
+    const issues = result.conflicts?.map(conflictMessage) ?? Object.values(result.errors ?? {});
+    const heading = document.createElement('strong');
+    heading.textContent = 'Chưa thêm được địa điểm. Bản nháp vẫn giữ nguyên.';
+    const list = document.createElement('ul');
+    for (const message of issues.length ? issues : ['Chuyến hoặc buổi đã thay đổi. Hãy chọn lại.']) {
+      const item = document.createElement('li');
+      item.textContent = message;
+      list.append(item);
+    }
+    feedback.replaceChildren(heading, list);
+    feedback.hidden = false;
+    feedback.focus();
+    if (result.conflicts) {
+      const field = result.conflicts.every(({ code }) => code === 'budget') ? 'budget' : `start-${selectedSlot}`;
+      offerSetup('Mở bản nháp để điều chỉnh', selectedSlot, field);
+    }
+  });
+
+  return (selectedPlace, params) => {
+    const changedPlace = place?.id !== selectedPlace?.id;
+    place = selectedPlace;
+    toggle.hidden = !place;
+    const open = !!place && params.get('add') === '1';
+    setOpen(open);
+    if (changedPlace) {
+      tripSelect.replaceChildren();
+      slotSelect.replaceChildren();
+    }
+    if (!open) return null;
+    renderTrips(params.get('trip'), params.get('slot'));
+    return tripSelect.value ? tripSelect : $('library-add-create');
+  };
+}
+
+export function renderLibrary(hash, focus, previousHash, renderAdd) {
   const [path, search] = hash.split('?', 2);
   const params = new URLSearchParams(search);
   query.value = params.get('q') ?? '';
@@ -120,10 +266,13 @@ export function renderLibrary(hash, focus, previousHash) {
   $('library-view').hidden = !isList;
   $('library-detail').hidden = isList;
 
+  let addFocus;
   if (isList) renderResults();
   else {
     const id = findPlaceId(path);
-    renderDetail(Object.hasOwn(placeById, id) ? placeById[id] : null);
+    const place = Object.hasOwn(placeById, id) ? placeById[id] : null;
+    renderDetail(place);
+    addFocus = renderAdd(place, params);
   }
 
   const heading = $(isList ? 'library-title' : 'library-detail-title');
@@ -132,7 +281,8 @@ export function renderLibrary(hash, focus, previousHash) {
 
   const previousPlace = isList && findPlaceId(previousHash.split('?', 1)[0]);
   const previousCard = previousPlace && results.querySelector(`[data-place-id="${previousPlace}"]`);
-  if (previousCard) previousCard.focus();
+  if (addFocus) addFocus.focus();
+  else if (previousCard) previousCard.focus();
   else {
     window.scrollTo({ top: 0, behavior: 'instant' });
     heading.focus({ preventScroll: true });

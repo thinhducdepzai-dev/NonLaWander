@@ -137,6 +137,29 @@
         <p id="library-detail-description"></p>
         <p id="library-detail-demo" class="library-demo"><span data-icon="info"></span>Dữ liệu demo. Chi phí và giờ mở cửa chỉ để tham khảo.</p>
       </header>
+      <button type="button" id="library-add-toggle" class="primary-button library-add-toggle" aria-controls="library-add" aria-expanded="false" hidden><span data-icon="plus"></span>Thêm vào lịch</button>
+      <section id="library-add" class="library-add" aria-labelledby="library-add-title" hidden>
+        <h2 id="library-add-title">Chọn chuyến và buổi</h2>
+        <form id="library-add-form">
+          <div id="library-add-fields" class="library-add-fields">
+            <div class="field">
+              <label for="library-trip-select">Chuyến đi</label>
+              <select id="library-trip-select"></select>
+            </div>
+            <div id="library-slot-field" class="field">
+              <label for="library-slot-select">Buổi trong bản nháp</label>
+              <select id="library-slot-select"></select>
+            </div>
+          </div>
+          <p id="library-add-guidance" class="library-add-guidance" hidden></p>
+          <div id="library-add-feedback" class="error-box" role="alert" tabindex="-1" hidden></div>
+          <div class="library-add-actions">
+            <button type="submit" id="library-add-submit" class="primary-button">Thêm địa điểm</button>
+            <button type="button" id="library-add-create" class="primary-button" hidden>Tạo chuyến đi</button>
+            <a id="library-add-configure" class="back-link" hidden>Thiết lập buổi trong bản nháp</a>
+          </div>
+        </form>
+      </section>
       <section id="library-detail-content" class="library-detail-content" aria-labelledby="library-detail-info-title">
         <h2 id="library-detail-info-title">Thông tin ghé thăm</h2>
         <dl>
@@ -182,6 +205,10 @@
         </div>
       </form>
       <p class="helper">Nháp tự lưu trên trình duyệt này.</p>
+      <div id="trip-library-context" class="trip-library-context" hidden>
+        <p id="trip-library-message" role="status" hidden></p>
+        <a id="trip-library-return" class="back-link"></a>
+      </div>
       <nav id="version-links" class="version-links" aria-label="Phiên bản lịch" hidden>
         <a id="draft-link">Nháp</a>
         <a id="confirmed-link">Bản đã chốt</a>
