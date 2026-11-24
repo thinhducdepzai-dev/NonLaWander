@@ -1,0 +1,36 @@
+const paths = {
+  pin: '<path d="M20 10c0 5-8 10-8 10s-8-5-8-10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/>',
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18m-13 5h.01M12 15h.01M16 15h.01"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  sunrise: '<path d="M3 17h18M5 21h14M7 16a5 5 0 0 1 10 0M12 3v3M4.5 9l2 2m13-2-2 2"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M19 5l-1.5 1.5m-11 11L5 19"/>',
+  moon: '<path d="M20.6 15.3A9 9 0 0 1 8.7 3.4a9 9 0 1 0 11.9 11.9Z"/>',
+  sliders: '<path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2" fill="var(--icon-surface, #f5e6da)"/><circle cx="15" cy="12" r="2" fill="var(--icon-surface, #f5e6da)"/><circle cx="10" cy="18" r="2" fill="var(--icon-surface, #f5e6da)"/>',
+  route: '<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.5 6h7a3 3 0 0 1 0 6h-7a3 3 0 0 0 0 6h7"/>',
+  compass: '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5 5-2Z"/>',
+  flask: '<path d="M9 3h6m-5 0v7l-5.4 8.4A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.4-2.6L14 10V3M8 15h8"/>',
+  sparkles: '<path d="M10 3l1.8 5.2L17 10l-5.2 1.8L10 17l-1.8-5.2L3 10l5.2-1.8L10 3Zm8 12v6m-3-3h6M19 3v4m-2-2h4"/>',
+  edit: '<path d="m14 5 5 5M4 20l1.2-5.3L16.8 3.1a2 2 0 0 1 2.8 0l1.3 1.3a2 2 0 0 1 0 2.8L9.3 18.8 4 20Z"/>',
+  walk: '<circle cx="13" cy="4.2" r="2"/><path d="m7 22 3.5-6 1.5-6M6 13l2.5-3.5L12 9l3 4 3 1m-8 2 4 2 1 4"/>',
+  landmark: '<path d="m3 9 9-5 9 5v2H3V9Zm1 11h16M7 11v6m5-6v6m5-6v6"/>',
+  coffee: '<path d="M4 9h13v5a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V9Zm13 1h2a2 2 0 1 1 0 4h-2M3 21h16M8 3v3m5-3v3"/>',
+  food: '<path d="M4 3v5a3 3 0 0 0 6 0V3m-3 0v18m13-18c-3 2-5 5-5 10h5m0-10v18"/>',
+  leaf: '<path d="M20 4C9 4 5 9 5 14a5 5 0 0 0 5 5c5 0 10-4 10-15ZM4 20l10-10"/>',
+  camera: '<path d="M4 7h4l2-3h4l2 3h4a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3"/>',
+  bag: '<path d="M5 8h14l2 12H3L5 8Zm4 2V6a3 3 0 1 1 6 0v4"/>',
+  bike: '<circle cx="5.5" cy="17" r="4"/><circle cx="18.5" cy="17" r="4"/><path d="m5.5 17 4-7h6l-4 7h-6m13 0-4-11h-2m-5 4h3"/>',
+  car: '<path d="M4 16v3m16-3v3M4 10l2-5h12l2 5m-16 0h16a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1Zm2 3h2m8 0h2"/>',
+  wallet: '<path d="M4 6h15a1 1 0 0 1 1 1v3M4 6a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h15a1 1 0 0 0 1-1v-3M5 6l10-3 1 3"/><path d="M17 10h5v6h-5a3 3 0 1 1 0-6Zm0 3h.01"/>',
+  chevron: '<path d="m6 9 6 6 6-6"/>',
+  up: '<path d="M12 20V4m-6 6 6-6 6 6"/>',
+  down: '<path d="M12 4v16m-6-6 6 6 6-6"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13m-8 4v5m4-5v5"/>',
+  check: '<path d="m5 12 4 4L19 6"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/>',
+  alert: '<path d="M10.3 4.6 2.7 18a1.4 1.4 0 0 0 1.2 2h16.2a1.4 1.4 0 0 0 1.2-2L13.7 4.6a2 2 0 0 0-3.4 0ZM12 9v4m0 3.5h.01"/>',
+};
+
+export function icon(name) {
+  return `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${paths[name]}</svg>`;
+}

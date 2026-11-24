@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f0e5">
+  <meta name="description" content="Xếp một lịch đi bộ theo ý bạn quanh Hồ Gươm và Phố cổ Hà Nội.">
+  <title>NonLa Wander — Cẩm nang đi bộ Hà Nội</title>
+  <link rel="icon" href="/assets/nonla.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" type="module"></script>
+</head>
+<body>
+  <a class="skip-link" href="#planner">Đến phần lên lịch</a>
+  <header class="site-header">
+    <div class="wrapper header-inner">
+      <a class="wordmark" href="#" aria-label="NonLa Wander, về đầu trang">
+        <img src="/assets/nonla.svg" alt="" width="37" height="37">
+        <span>NonLa <i>Wander</i></span>
+      </a>
+      <nav aria-label="Điều hướng chính">
+        <a href="#planner">Lên lịch</a>
+        <a href="#itinerary">Lịch của bạn</a>
+      </nav>
+      <span class="demo-tag"><span data-icon="flask"></span>Bản demo</span>
+    </div>
+  </header>
+
+  <main class="wrapper">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow"><span data-icon="pin"></span>Cẩm nang đi bộ Hà Nội</p>
+        <h1 id="hero-title">Một vòng <em>Hà Nội.</em></h1>
+        <p>Xếp lịch dạo quanh Hồ Gươm và Phố cổ theo giờ rảnh và sở thích của bạn.</p>
+      </div>
+      <figure class="postcard">
+        <img src="/assets/ho-guom-xanh.webp" alt="Tranh minh họa Tháp Rùa bên Hồ Gươm" width="1000" height="667" fetchpriority="high">
+        <figcaption><span><span data-icon="pin"></span> Hồ Gươm, Hà Nội</span><span>Tranh minh họa</span></figcaption>
+      </figure>
+    </section>
+
+    <div class="planner-layout">
+      <section id="planner" aria-labelledby="planner-title">
+        <div class="section-heading">
+          <div class="section-name"><span class="section-icon" data-icon="sliders"></span><h2 id="planner-title">Lên lịch đi chơi</h2></div>
+          <button type="button" id="load-example" class="text-button"><span data-icon="sparkles"></span>Lịch mẫu</button>
+        </div>
+
+        <form id="trip-form" novalidate>
+          <div id="form-errors" class="error-box" tabindex="-1" hidden></div>
+
+          <section class="paper-panel" aria-labelledby="dates-title">
+            <h3 id="dates-title"><span data-icon="calendar"></span>Ngày ở Hà Nội</h3>
+            <div class="dates">
+              <div class="field">
+                <label for="arrival">Ngày đến</label>
+                <input id="arrival" type="date" name="startDate" required aria-describedby="error-arrival">
+                <p class="field-error" id="error-arrival" hidden></p>
+              </div>
+              <div class="field">
+                <label for="departure">Ngày rời</label>
+                <input id="departure" type="date" name="endDate" required aria-describedby="error-departure">
+                <p class="field-error" id="error-departure" hidden></p>
+              </div>
+            </div>
+          </section>
+
+          <section class="paper-panel sessions" aria-labelledby="sessions">
+            <div class="panel-heading">
+              <h3 id="sessions" tabindex="-1" aria-describedby="error-sessions"><span data-icon="clock"></span>Buổi muốn đi chơi</h3>
+              <span id="slot-count" class="chip-count"></span>
+            </div>
+            <p class="helper">Chọn buổi bạn rảnh và sửa giờ nếu cần. Để trống nếu muốn nghỉ cả ngày.</p>
+            <p class="field-error" id="error-sessions" hidden></p>
+            <div id="day-list"></div>
+          </section>
+
+          <section class="paper-panel preferences" aria-labelledby="preferences-title">
+            <h3 id="preferences-title"><span data-icon="compass"></span>Chuyến đi hợp gu</h3>
+            <p class="helper">Yêu cầu riêng được lưu cùng form trên thiết bị. Bản demo chưa dùng phần chữ tự do để xếp lịch.</p>
+
+            <fieldset>
+              <legend>Vibe bạn thích</legend>
+              <div class="option-list" id="vibes-options"></div>
+              <div data-note="vibes" data-label="gu đi chơi"></div>
+            </fieldset>
+
+            <fieldset>
+              <legend>Khu vực ưu tiên</legend>
+              <div class="option-list" id="areas-options"></div>
+              <div data-note="areas" data-label="khu vực"></div>
+            </fieldset>
+
+            <fieldset>
+              <legend>Điểm nhất định muốn ghé</legend>
+              <details class="places-picker" id="places-picker">
+                <summary><span id="places-summary">Chọn địa điểm mẫu</span><span data-icon="chevron"></span></summary>
+                <div class="option-list" id="places-options"></div>
+              </details>
+              <div data-note="mustVisit" data-label="địa điểm"></div>
+            </fieldset>
+
+            <div class="field budget-field">
+              <label for="budget">Ngân sách cả lịch / người</label>
+              <div class="currency-input">
+                <input type="number" inputmode="numeric" min="0" step="1" required id="budget" name="budget" aria-describedby="budget-hint error-budget">
+                <span aria-hidden="true">₫</span>
+              </div>
+              <p id="budget-hint" class="helper">Tổng tiền dự kiến cho các điểm trong cả chuyến.</p>
+              <p class="field-error" id="error-budget" hidden></p>
+              <div data-note="budget" data-label="ngân sách"></div>
+            </div>
+
+            <fieldset id="transport">
+              <legend>Phương tiện di chuyển</legend>
+              <div class="option-list" id="transport-options"></div>
+              <p class="helper" id="transport-hint">Bản demo tính lịch và thời gian di chuyển theo tuyến đi bộ.</p>
+              <p class="field-error" id="error-transport" hidden></p>
+              <div data-note="transport" data-label="di chuyển"></div>
+            </fieldset>
+          </section>
+
+          <div class="form-actions">
+            <button type="submit" class="primary-button"><span data-icon="route"></span>Xếp lịch đi bộ</button>
+            <p class="helper" id="storage-notice" hidden>Trình duyệt đang chặn lưu trên thiết bị.</p>
+          </div>
+        </form>
+      </section>
+
+      <section id="itinerary" aria-labelledby="itinerary-title">
+        <div class="section-heading itinerary-heading">
+          <div class="section-name"><span class="section-icon" data-icon="route"></span><h2 id="itinerary-title" tabindex="-1">Lịch của bạn</h2></div>
+          <button id="edit-plan" type="button" class="text-button" aria-pressed="false"><span data-icon="edit"></span><span id="edit-label">Chỉnh sửa</span></button>
+        </div>
+        <div id="trip-summary"></div>
+        <p class="small-notice" id="stale-notice" hidden>Form đã đổi. Xếp lại lịch để áp dụng các lựa chọn mới.</p>
+        <div id="timeline"></div>
+        <aside class="demo-note"><span data-icon="info"></span><p>Địa điểm, giá, giờ mở cửa và độ đông dùng dữ liệu demo. Thời gian đi bộ được ước tính theo từng buổi.</p></aside>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrapper footer-inner">
+      <a class="wordmark" href="#" aria-label="NonLa Wander, về đầu trang"><img src="/assets/nonla.svg" alt="" width="29" height="29"><span>NonLa <i>Wander</i></span></a>
+      <p>Hồ Gươm · Phố cổ Hà Nội</p>
+    </div>
+  </footer>
+  <div id="status" class="sr-only" role="status" aria-atomic="true"></div>
+</body>
+</html>
