@@ -249,7 +249,7 @@ main.wrapper { flex: 1; }
   letter-spacing: -.04em;
   text-wrap: pretty;
 }
-.home-story-copy > p:last-child { max-width: 38ch; color: var(--muted); font-size: clamp(1rem, 1.36vw, 1.125rem); }
+.home-story-copy > p:not(.home-category) { max-width: 38ch; color: var(--muted); font-size: clamp(1rem, 1.36vw, 1.125rem); }
 .home-story-photo { min-width: 0; overflow: hidden; border-radius: var(--radius); background: var(--green-soft); }
 .home-story-photo img { width: 100%; aspect-ratio: 4 / 3; height: auto; object-fit: cover; }
 .home-sight-photo img { object-position: center 46%; }
@@ -340,6 +340,7 @@ main.wrapper { flex: 1; }
 .library-place:hover h3 { text-decoration: underline; text-underline-offset: .2em; }
 .library-place:active { background: var(--accent-soft); }
 .library-empty { padding: 1rem; border: 1px solid var(--line); border-radius: var(--small-radius); background: var(--card); color: var(--muted); }
+#library-empty { margin-top: 1rem; }
 #library-detail .back-link { gap: .35rem; margin-bottom: .75rem; color: var(--accent-strong); }
 .library-heading > .library-detail-category { margin: 0 0 .45rem; color: var(--accent-strong); font-size: .9rem; font-weight: 700; }
 .library-detail-content { max-width: 42rem; margin-top: 1.5rem; padding: clamp(1rem, 3vw, 1.5rem); border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
@@ -352,6 +353,7 @@ main.wrapper { flex: 1; }
 #library-detail-hours li span { display: block; font-size: .8125rem; font-weight: 500; }
 .library-detail-note { padding-top: .65rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .875rem; }
 .library-detail-actions { display: flex; flex-wrap: wrap; gap: .65rem; margin-top: 1.25rem; }
+.library-detail-actions:not(:has(> button:not([hidden]))) { display: none; }
 .library-detail-actions .primary-button { width: auto; min-height: 44px; }
 .library-trip-back { margin-bottom: .6rem; }
 .library-saved-status { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .6rem; margin-top: .8rem; color: var(--accent-strong); font-size: .875rem; }

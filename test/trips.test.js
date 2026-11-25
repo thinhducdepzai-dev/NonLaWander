@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { exampleDraft, placeById } from '../public/data.js';
+import { exampleDraft, experienceById, experiencePlaces, placeById } from '../public/data.js';
 import { applyEdit, clock, createPlan, inspectPlan, prepareRequest, walkMinutes } from '../public/planner.js';
 import { createTripStore, hasDraftChanges, legacyStorageKey, participantCount, tripStoragePrefix } from '../public/trips.js';
 
@@ -33,6 +33,44 @@ function removeFirstStop(draft) {
     undo: { slotId, stopId, plan: draft.plan },
   };
 }
+
+test('a trip without dates saves an experience once and reloads it independently of places', () => {
+  const storage = memoryStorage();
+  const store = createTripStore(storage);
+  const trip = store.create({ savedExperienceId: 'uong-ca-phe' });
+  assert.equal(trip.draft.form.startDate, '');
+  assert.equal(trip.draft.plan, null);
+  const key = tripStoragePrefix + trip.id;
+  const initial = storage.getItem(key);
+  assert.equal(store.setSavedExperience(trip.id, 'unknown', true), null);
+  assert.deepEqual(store.setSavedExperience(trip.id, 'uong-ca-phe', true), trip);
+  assert.equal(storage.getItem(key), initial);
+  const reopened = createTripStore(storage).get(trip.id);
+  assert.deepEqual(reopened.savedExperienceIds, ['uong-ca-phe']);
+  assert.deepEqual(reopened.savedPlaceIds, []);
+});
+
+test('legacy trips can save ideas without affecting a scheduled or saved place', () => {
+  const storage = memoryStorage();
+  const store = createTripStore(storage);
+  const trip = store.create({ savedPlaceId: 'dinh-cafe' });
+  store.saveDraft(trip.id, sampleDraft());
+  const { savedExperienceIds, ...legacy } = store.confirm(trip.id);
+  assert.deepEqual(savedExperienceIds, []);
+  storage.setItem(tripStoragePrefix + trip.id, JSON.stringify(legacy));
+  const reopened = createTripStore(storage);
+  assert.deepEqual(reopened.get(trip.id).savedExperienceIds, []);
+  assert.deepEqual(reopened.setSavedExperience(trip.id, 'bun-cha', true).savedExperienceIds, ['bun-cha']);
+  assert.deepEqual(reopened.setSavedExperience(trip.id, 'bun-cha', false), { ...legacy, savedExperienceIds: [] });
+});
+
+test('experience relationships can point to several places or remain empty', () => {
+  assert.deepEqual(experiencePlaces(experienceById['uong-ca-phe']).map(({ id }) => id), ['dinh-cafe', 'giang-cafe']);
+  for (const id of ['dao-pho', 'chup-anh']) assert.ok(experiencePlaces(experienceById[id]).includes(placeById['ho-guom']));
+  assert.deepEqual(experiencePlaces(experienceById['ca-phe-trung']), []);
+  assert.deepEqual(experiencePlaces(experienceById['bun-cha']), []);
+  assert.deepEqual(experiencePlaces({ placeIds: ['unknown', 'dinh-cafe'] }), [placeById['dinh-cafe']]);
+});
 
 test('a fresh browser starts empty and a new trip can be named before setting dates', () => {
   const storage = memoryStorage();

@@ -43,6 +43,23 @@ export const places = [
 export const placeById = Object.fromEntries(places.map((place) => [place.id, place]));
 export const periodById = Object.fromEntries(periods.map((period) => [period.id, period]));
 
+// Liên kết demo dựa trên tên, nhóm hoặc vibe đã có của địa điểm.
+export const experiences = [
+  { id: 'pho', name: 'Phở', kind: 'Món ăn', icon: 'food', placeIds: ['pho-gia-truyen'] },
+  { id: 'kem', name: 'Kem', kind: 'Món ăn', icon: 'food', placeIds: ['trang-tien'] },
+  { id: 'uong-ca-phe', name: 'Uống cà phê', kind: 'Hoạt động', icon: 'coffee', placeIds: ['dinh-cafe', 'giang-cafe'] },
+  { id: 'dao-pho', name: 'Dạo phố', kind: 'Hoạt động', icon: 'walk', placeIds: ['ho-guom', 'cho-dem'] },
+  { id: 'chup-anh', name: 'Chụp ảnh', kind: 'Hoạt động', icon: 'camera', placeIds: ['ho-guom', 'ngoc-son', 'nha-tho', 'ma-may', 'dong-xuan'] },
+  { id: 'ca-phe-trung', name: 'Cà phê trứng', kind: 'Món ăn', icon: 'coffee', placeIds: [] },
+  { id: 'bun-cha', name: 'Bún chả', kind: 'Món ăn', icon: 'food', placeIds: [] },
+];
+
+export const experienceById = Object.fromEntries(experiences.map((item) => [item.id, item]));
+
+export function experiencePlaces(experience) {
+  return experience.placeIds.filter((id) => Object.hasOwn(placeById, id)).map((id) => placeById[id]);
+}
+
 export function exampleDraft() {
   return {
     startDate: '2026-11-27',

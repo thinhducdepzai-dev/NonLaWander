@@ -1,4 +1,4 @@
-import { areas, periodById, placeById, transports, vibes } from './data.js';
+import { areas, experienceById, periodById, placeById, transports, vibes } from './data.js';
 import { appendVisit, dateIndex, draftBudget, moveVisit, newVisitId, placeCost, prepareRequest, previewReplacement } from './planner.js';
 
 export const legacyStorageKey = 'nonla-wander-v1';
@@ -19,6 +19,8 @@ export const participantCount = (version) => version.participants ?? 1;
 const hasValidParticipants = (version) => version.participants === undefined || isParticipantCount(version.participants);
 const isPeriod = (id) => typeof id === 'string' && Object.hasOwn(periodById, id);
 const isPlace = (id) => typeof id === 'string' && Object.hasOwn(placeById, id);
+const isExperience = (id) => typeof id === 'string' && Object.hasOwn(experienceById, id);
+const savedIds = (value, check) => Array.isArray(value) ? [...new Set(value.filter(check))] : [];
 const isList = (value, check) => Array.isArray(value) && value.every(check);
 const isKnown = (items, id) => items.some((item) => item.id === id);
 const isPriceSnapshot = (prices) => isRecord(prices) && Object.entries(prices).every(([id, cost]) =>
@@ -99,7 +101,7 @@ function blankDraft() {
 }
 
 function newTrip(id, name = defaultName, draft = blankDraft()) {
-  return { version: 2, id, name, createdAt: Date.now(), draft, confirmed: null, savedPlaceIds: [] };
+  return { version: 2, id, name, createdAt: Date.now(), draft, confirmed: null, savedPlaceIds: [], savedExperienceIds: [] };
 }
 
 function planSnapshot(version) {
@@ -140,8 +142,11 @@ export function createTripStore(storage) {
     if (!tripIdPattern.test(id)) return null;
     const trip = read(tripStoragePrefix + id);
     if (!isTrip(trip, id)) return null;
-    const saved = Array.isArray(trip.savedPlaceIds) ? trip.savedPlaceIds.filter(isPlace) : [];
-    return { ...trip, savedPlaceIds: [...new Set(saved)] };
+    return {
+      ...trip,
+      savedPlaceIds: savedIds(trip.savedPlaceIds, isPlace),
+      savedExperienceIds: savedIds(trip.savedExperienceIds, isExperience),
+    };
   }
 
   function get(id) {
@@ -190,22 +195,31 @@ export function createTripStore(storage) {
     }));
   }
 
-  function create({ savedPlaceId } = {}) {
+  function create({ savedPlaceId, savedExperienceId } = {}) {
     if (savedPlaceId !== undefined && !isPlace(savedPlaceId)) return null;
+    if (savedExperienceId !== undefined && !isExperience(savedExperienceId)) return null;
     // getRandomValues also works when this dev server is opened over local-network HTTP.
     const bytes = crypto.getRandomValues(new Uint8Array(16));
     const id = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
     const trip = newTrip(id);
     if (savedPlaceId) trip.savedPlaceIds.push(savedPlaceId);
+    if (savedExperienceId) trip.savedExperienceIds.push(savedExperienceId);
     return write(trip);
   }
 
   function setSavedPlace(id, placeId, saved) {
-    if (!isPlace(placeId)) return null;
+    return isPlace(placeId) ? setSavedItem(id, 'savedPlaceIds', placeId, saved) : null;
+  }
+
+  function setSavedExperience(id, experienceId, saved) {
+    return isExperience(experienceId) ? setSavedItem(id, 'savedExperienceIds', experienceId, saved) : null;
+  }
+
+  function setSavedItem(id, field, itemId, saved) {
     const trip = get(id);
-    if (!trip || trip.savedPlaceIds.includes(placeId) === saved) return trip;
-    const savedPlaceIds = saved ? [...trip.savedPlaceIds, placeId] : trip.savedPlaceIds.filter((item) => item !== placeId);
-    return write({ ...trip, savedPlaceIds });
+    if (!trip || trip[field].includes(itemId) === saved) return trip;
+    const items = saved ? [...trip[field], itemId] : trip[field].filter((item) => item !== itemId);
+    return write({ ...trip, [field]: items });
   }
 
   function rename(id, name) {
@@ -295,7 +309,7 @@ export function createTripStore(storage) {
   }
 
   return {
-    list, get, create, rename, saveDraft, setParticipants, setSavedPlace, addVisit, moveVisit: moveDraftVisit,
+    list, get, create, rename, saveDraft, setParticipants, setSavedPlace, setSavedExperience, addVisit, moveVisit: moveDraftVisit,
     previewReplacement: previewDraftReplacement, replaceVisit: replaceDraftVisit, confirm, migrateLegacy,
     get storageProblem() { return readFailed || unsaved.size > 0; },
   };

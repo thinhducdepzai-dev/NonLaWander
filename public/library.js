@@ -1,4 +1,4 @@
-import { areas, periodById, placeById, places } from './data.js';
+import { areas, experienceById, experiencePlaces, experiences, periodById, placeById, places } from './data.js';
 import { icon } from './icons.js';
 import { clock, hasKnownCost, prepareRequest } from './planner.js';
 
@@ -11,6 +11,7 @@ const areaLabels = new Map(areas.map((area) => [area.id, area.label]));
 const currency = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
 const dayLabels = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ nhật'];
 let libraryTripId = null;
+let libraryExperienceId = null;
 
 for (const label of libraryGroups) category.add(new Option(label, label));
 
@@ -28,6 +29,19 @@ function libraryPath(placeId, params) {
   return `#library${placeId ? `/${placeId}` : ''}${search ? `?${search}` : ''}`;
 }
 
+const experiencePath = (id) => `experience/${id}`;
+
+export function experienceHref(id, tripId) {
+  const params = new URLSearchParams();
+  if (tripId) params.set('fromTrip', tripId);
+  return libraryPath(experiencePath(id), params);
+}
+
+export function experiencePlaceLabel(item) {
+  const count = experiencePlaces(item).length;
+  return count ? `${count} địa điểm để chọn` : 'Chưa có địa điểm';
+}
+
 export function tripLibraryHref(tripId, placeId, add = false) {
   const params = new URLSearchParams({ fromTrip: tripId });
   if (add) params.set('add', '1');
@@ -39,6 +53,7 @@ function libraryHref(placeId, options = {}) {
   if (query.value.trim()) params.set('q', query.value.trim());
   if (category.value) params.set('group', category.value);
   if (libraryTripId) params.set('fromTrip', libraryTripId);
+  if (libraryExperienceId && placeId && !placeId.includes('/')) params.set('experience', libraryExperienceId);
   for (const [key, value] of Object.entries(options)) {
     if (value) params.set(key, value);
   }
@@ -47,6 +62,10 @@ function libraryHref(placeId, options = {}) {
 
 function findPlaceId(path) {
   return path.match(/^#library\/([a-z0-9-]+)$/)?.[1];
+}
+
+function findExperienceId(path) {
+  return path.match(/^#library\/experience\/([a-z0-9-]+)$/)?.[1];
 }
 
 export function getLibraryReturn(href) {
@@ -66,23 +85,41 @@ function placeCost(place) {
   return hasKnownCost(place) ? currency.format(place.cost) : 'Chưa có giá';
 }
 
+function libraryCard(item, href, meta, price) {
+  const row = $('library-place-template').content.firstElementChild.cloneNode(true);
+  row.querySelector('a').href = href;
+  row.querySelector('h3').textContent = item.name;
+  row.querySelector('.library-place-icon').innerHTML = icon(item.icon);
+  row.querySelector('.library-place-meta').textContent = meta;
+  const priceLabel = row.querySelector('.library-place-price');
+  priceLabel.hidden = !price;
+  priceLabel.textContent = price ?? '';
+  return row;
+}
+
+function placeCard(place, experienceId) {
+  const meta = [place.category, areaLabels.get(place.area)].filter(Boolean).join(' · ');
+  const row = libraryCard(place, libraryHref(place.id, { experience: experienceId }), meta, placeCost(place));
+  row.querySelector('a').dataset.placeId = place.id;
+  return row;
+}
+
 function renderResults() {
   const group = category.value;
   const matching = filterLibraryPlaces(query.value, group);
-
-  results.replaceChildren(...matching.map((place) => {
-    const item = $('library-place-template').content.firstElementChild.cloneNode(true);
-    const link = item.querySelector('a');
-    link.href = libraryHref(place.id);
-    link.dataset.placeId = place.id;
-    item.querySelector('h3').textContent = place.name;
-    item.querySelector('.library-place-icon').innerHTML = icon(place.icon);
-    item.querySelector('.library-place-meta').textContent = [place.category, areaLabels.get(place.area)].filter(Boolean).join(' · ');
-    item.querySelector('.library-place-price').textContent = placeCost(place);
-    return item;
+  const name = foldName(query.value);
+  const ideas = experiences.filter((item) => foldName(item.name).includes(name));
+  $('library-experiences').replaceChildren(...ideas.map((item) => {
+    const row = libraryCard(item, libraryHref(experiencePath(item.id)), `${item.kind} · ${experiencePlaceLabel(item)}`);
+    row.querySelector('a').dataset.experienceId = item.id;
+    return row;
   }));
+  results.replaceChildren(...matching.map((place) => placeCard(place)));
+  $('library-experience-count').textContent = `${ideas.length} trải nghiệm`;
+  $('library-experience-results').hidden = !ideas.length;
   $('library-result-count').textContent = `${matching.length} địa điểm`;
-  $('library-empty').hidden = matching.length > 0;
+  $('library-place-results').hidden = !matching.length;
+  $('library-empty').hidden = !!(matching.length || ideas.length);
   $('library-reset').disabled = !query.value && !group;
 }
 
@@ -125,8 +162,8 @@ function renderHours(hours) {
 }
 
 function renderDetail(place) {
-  $('library-back').href = libraryHref();
-  $('library-back-label').textContent = 'Quay về thư viện';
+  $('library-back').href = libraryHref(libraryExperienceId ? experiencePath(libraryExperienceId) : undefined);
+  $('library-back-label').textContent = libraryExperienceId ? 'Quay về trải nghiệm' : 'Quay về thư viện';
   $('library-detail-title').textContent = place?.name ?? 'Không tìm thấy địa điểm';
   $('library-detail-description').textContent = place
     ? place.description || 'Chưa có mô tả trong dữ liệu demo.'
@@ -134,6 +171,7 @@ function renderDetail(place) {
   $('library-detail-category').hidden = !place?.category;
   $('library-detail-demo').hidden = !place;
   $('library-detail-content').hidden = !place;
+  $('library-experience-places').hidden = true;
   if (!place) return;
 
   $('library-detail-category').textContent = place.category;
@@ -143,6 +181,30 @@ function renderDetail(place) {
   $('library-detail-note').hidden = !place.crowd;
   $('library-detail-note').textContent = place.crowd ? `Ghi chú demo: ${place.crowd}.` : '';
   renderHours(place.hours);
+}
+
+function renderExperience(item) {
+  const related = item ? experiencePlaces(item) : [];
+  $('library-detail-title').textContent = item?.name ?? 'Không tìm thấy trải nghiệm';
+  $('library-detail-category').textContent = item?.kind ?? '';
+  $('library-detail-category').hidden = !item;
+  $('library-detail-demo').hidden = !item;
+  const description = $('library-detail-description');
+  description.textContent = 'Quay về thư viện để tìm trải nghiệm khác.';
+  if (item) {
+    description.textContent = libraryTripId ? 'Chọn một địa điểm để thêm vào lịch nháp của chuyến.'
+      : 'Lưu ý tưởng vào chuyến hoặc chọn một địa điểm để xếp lịch.';
+    if (!related.length) description.textContent = '';
+  }
+  $('library-detail-content').hidden = true;
+  $('library-experience-places').hidden = !item;
+  $('library-back').href = libraryHref();
+  $('library-back-label').textContent = 'Quay về thư viện';
+  if (!item) return;
+
+  $('library-experience-places-title').textContent = related.length ? 'Chọn địa điểm' : 'Địa điểm liên quan';
+  $('library-experience-empty').hidden = !!related.length;
+  $('library-related-places').replaceChildren(...related.map((place) => placeCard(place, item.id)));
 }
 
 export function slotLabel(slot) {
@@ -164,7 +226,7 @@ function fillTripOptions(select, available, selectedTrip) {
   if (available.some((trip) => trip.id === selectedTrip)) select.value = selectedTrip;
 }
 
-export function setupLibraryActions({ trips, createTrip, tripHash, savedPlacesHash, showAdded, showStorageStatus }) {
+export function setupLibraryActions({ trips, createTrip, tripHash, savedItemsHash, showAdded, showStorageStatus }) {
   const toggle = $('library-add-toggle');
   const panel = $('library-add');
   const tripSelect = $('library-trip-select');
@@ -179,6 +241,7 @@ export function setupLibraryActions({ trips, createTrip, tripHash, savedPlacesHa
   const saveSubmit = $('library-save-submit');
   const saveError = $('library-save-error');
   let place;
+  let experience;
 
   function availableTrips() {
     if (!libraryTripId) return trips.list();
@@ -252,14 +315,16 @@ export function setupLibraryActions({ trips, createTrip, tripHash, savedPlacesHa
   }
 
   function renderSavedStatus() {
-    const saved = place ? trips.list().filter((trip) => trip.savedPlaceIds.includes(place.id)) : [];
+    const item = experience ?? place;
+    const field = experience ? 'savedExperienceIds' : 'savedPlaceIds';
+    const saved = item ? trips.list().filter((trip) => trip[field].includes(item.id)) : [];
     $('library-saved-status').hidden = !saved.length;
     $('library-saved-trips').replaceChildren(...saved.map((trip) => {
       const item = document.createElement('li');
       const link = document.createElement('a');
-      link.href = savedPlacesHash(trip.id);
+      link.href = savedItemsHash(trip.id, !!experience);
       link.textContent = trip.name;
-      link.setAttribute('aria-label', `Xem địa điểm đã lưu trong ${trip.name}`);
+      link.setAttribute('aria-label', `Xem ${experience ? 'trải nghiệm' : 'địa điểm'} đã lưu trong ${trip.name}`);
       item.append(link);
       return item;
     }));
@@ -275,7 +340,7 @@ export function setupLibraryActions({ trips, createTrip, tripHash, savedPlacesHa
     saveCreate.classList.toggle('text-button', !!available.length);
     const hint = $('library-save-guidance');
     hint.hidden = !libraryTripId && !!available.length;
-    const emptyMessage = libraryTripId ? 'Chuyến này không còn khả dụng.' : 'Tạo một chuyến trống để lưu địa điểm ngay.';
+    const emptyMessage = libraryTripId ? 'Chuyến này không còn khả dụng.' : 'Bạn có thể tạo chuyến trống để lưu ngay.';
     hint.textContent = available.length ? `Lưu vào ${available[0].name}.` : emptyMessage;
     saveError.hidden = true;
   }
@@ -340,8 +405,9 @@ export function setupLibraryActions({ trips, createTrip, tripHash, savedPlacesHa
 
   $('library-save-form').addEventListener('submit', (event) => {
     event.preventDefault();
-    if (savePanel.hidden || !place) return;
-    const trip = trips.setSavedPlace(libraryTripId ?? saveSelect.value, place.id, true);
+    if (savePanel.hidden || !(experience || place)) return;
+    const id = libraryTripId ?? saveSelect.value;
+    const trip = experience ? trips.setSavedExperience(id, experience.id, true) : trips.setSavedPlace(id, place.id, true);
     if (!trip) {
       renderSaveTrips();
       saveError.textContent = 'Chuyến đã thay đổi. Hãy kiểm tra rồi lưu lại.';
@@ -354,29 +420,36 @@ export function setupLibraryActions({ trips, createTrip, tripHash, savedPlacesHa
   });
 
   saveCreate.addEventListener('click', () => {
-    if (savePanel.hidden || !place || libraryTripId) return;
-    const trip = trips.create({ savedPlaceId: place.id });
+    if (savePanel.hidden || !(experience || place) || libraryTripId) return;
+    const trip = trips.create(experience ? { savedExperienceId: experience.id } : { savedPlaceId: place.id });
     setSaveOpen(false);
     renderSavedStatus();
     showStorageStatus();
-    const link = Array.from($('library-saved-trips').querySelectorAll('a')).find((item) => item.hash === savedPlacesHash(trip.id));
+    const link = Array.from($('library-saved-trips').querySelectorAll('a')).find((item) => item.hash === savedItemsHash(trip.id, !!experience));
     link?.focus();
   });
 
-  return (selectedPlace, params) => {
-    const changedPlace = place?.id !== selectedPlace?.id;
+  return (selectedPlace, params, selectedExperience) => {
+    const changedItem = place?.id !== selectedPlace?.id || experience?.id !== selectedExperience?.id;
     place = selectedPlace;
+    experience = selectedExperience;
+    const savedInOrigin = !!experience && !!libraryTripId && trips.get(libraryTripId)?.savedExperienceIds.includes(experience.id);
     toggle.hidden = !place;
-    saveToggle.hidden = !place;
+    saveToggle.hidden = !(place || experience) || savedInOrigin;
+    saveToggle.classList.toggle('primary-button', !!experience);
+    saveToggle.classList.toggle('text-button', !experience);
+    $('library-save-label').textContent = experience ? 'Lưu trải nghiệm' : 'Lưu để xếp sau';
+    $('library-save-title').textContent = experience ? 'Lưu ý tưởng vào chuyến' : 'Lưu để xếp lịch sau';
+    saveSubmit.textContent = experience ? 'Lưu trải nghiệm' : 'Lưu địa điểm';
     setSaveOpen(false);
     renderSavedStatus();
-    if (libraryTripId) {
-      $('library-back').href = savedPlacesHash(libraryTripId);
-      $('library-back-label').textContent = 'Quay về địa điểm đã lưu';
+    if (libraryTripId && !libraryExperienceId) {
+      $('library-back').href = savedItemsHash(libraryTripId, !!experience);
+      $('library-back-label').textContent = experience ? 'Quay về trải nghiệm đã lưu' : 'Quay về địa điểm đã lưu';
     }
     const open = !!place && params.get('add') === '1';
     setOpen(open);
-    if (changedPlace) {
+    if (changedItem) {
       tripSelect.replaceChildren();
       slotSelect.replaceChildren();
       saveSelect.replaceChildren();
@@ -387,14 +460,17 @@ export function setupLibraryActions({ trips, createTrip, tripHash, savedPlacesHa
   };
 }
 
-export function renderLibrary(hash, focus, previousHash, renderActions, savedPlacesHash) {
+export function renderLibrary(hash, focus, previousHash, renderActions, savedItemsHash) {
   const [path, search] = hash.split('?', 2);
   const params = new URLSearchParams(search);
   const fromTrip = params.get('fromTrip');
   libraryTripId = /^[a-z0-9-]+$/.test(fromTrip ?? '') ? fromTrip : null;
+  const origin = params.get('experience');
+  libraryExperienceId = findPlaceId(path) && Object.hasOwn(experienceById, origin) ? origin : null;
   query.value = params.get('q') ?? '';
   category.value = params.get('group') ?? '';
   const isList = path === '#library';
+  const experienceId = findExperienceId(path);
   $('library-view').hidden = !isList;
   $('library-detail').hidden = isList;
 
@@ -402,10 +478,13 @@ export function renderLibrary(hash, focus, previousHash, renderActions, savedPla
   if (isList) {
     const back = $('library-trip-back');
     back.hidden = !libraryTripId;
-    if (libraryTripId) back.href = savedPlacesHash(libraryTripId);
+    if (libraryTripId) back.href = savedItemsHash(libraryTripId);
     renderResults();
-  }
-  else {
+  } else if (experienceId) {
+    const experience = Object.hasOwn(experienceById, experienceId) ? experienceById[experienceId] : null;
+    renderExperience(experience);
+    renderActions(null, params, experience);
+  } else {
     const id = findPlaceId(path);
     const place = Object.hasOwn(placeById, id) ? placeById[id] : null;
     renderDetail(place);
@@ -416,8 +495,11 @@ export function renderLibrary(hash, focus, previousHash, renderActions, savedPla
   document.title = isList ? 'Library · NonLa Wander' : `${heading.textContent} · Library · NonLa Wander`;
   if (!focus) return;
 
-  const previousPlace = isList && findPlaceId(previousHash.split('?', 1)[0]);
-  const previousCard = previousPlace && results.querySelector(`[data-place-id="${previousPlace}"]`);
+  const previousPath = previousHash.split('?', 1)[0];
+  const previousPlace = findPlaceId(previousPath);
+  const previousExperience = findExperienceId(previousPath);
+  const previousCard = isList && previousExperience ? $('library-experiences').querySelector(`[data-experience-id="${previousExperience}"]`)
+    : previousPlace && (isList ? results : experienceId ? $('library-related-places') : null)?.querySelector(`[data-place-id="${previousPlace}"]`);
   if (addFocus) addFocus.focus();
   else if (previousCard) previousCard.focus();
   else {

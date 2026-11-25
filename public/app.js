@@ -1,7 +1,7 @@
-import { areas, exampleDraft, periodById, periods, placeById, places, transports, vibes } from './data.js';
+import { areas, exampleDraft, experienceById, experiencePlaces, periodById, periods, placeById, places, transports, vibes } from './data.js';
 import { setupHomeMotion } from './home.js';
 import { icon } from './icons.js';
-import { getLibraryReturn, renderLibrary, setupLibraryActions, slotLabel, tripLibraryHref } from './library.js';
+import { experienceHref, experiencePlaceLabel, getLibraryReturn, renderLibrary, setupLibraryActions, slotLabel, tripLibraryHref } from './library.js';
 import { applyEdit, clock, createPlan, dateAt, dateIndex, draftBudget, inspectPlan, moveDestinations, openingHours, placeCost, prepareRequest, weekday } from './planner.js';
 import { setupReplacement } from './replace-visit.js';
 import { setupTripLibrary } from './trip-library.js';
@@ -776,8 +776,8 @@ function tripHash(id, confirmed = false, returnHref) {
   return returnHref ? `${path}?${new URLSearchParams({ library: returnHref })}` : path;
 }
 
-function savedPlacesHash(id) {
-  return `${tripHash(id)}?saved=1`;
+function savedItemsHash(id, experience = false) {
+  return `${tripHash(id)}?saved=${experience ? 'experience' : '1'}`;
 }
 
 function renderSavedPlaces() {
@@ -819,6 +819,39 @@ $('trip-saved-list').addEventListener('click', (event) => {
   announce(`Đã bỏ lưu ${placeById[placeId].name}.`);
 });
 
+function renderSavedExperiences() {
+  const { id, savedExperienceIds } = activeTrip;
+  $('trip-experiences').hidden = !savedExperienceIds.length;
+  $('trip-experiences-list').replaceChildren(...savedExperienceIds.map((experienceId) => {
+    const experience = experienceById[experienceId];
+    const row = $('trip-experience-item').content.firstElementChild.cloneNode(true);
+    const link = row.querySelector('a');
+    link.href = experienceHref(experienceId, id);
+    row.querySelector('strong').textContent = experience.name;
+    row.querySelector('small').textContent = `${experience.kind} · ${experiencePlaceLabel(experience)}`;
+    row.querySelector('.trip-saved-icon').innerHTML = icon(experience.icon);
+    const remove = row.querySelector('button');
+    remove.dataset.experienceId = experience.id;
+    remove.setAttribute('aria-label', `Bỏ lưu ${experience.name}`);
+    return row;
+  }));
+}
+
+$('trip-experiences-list').addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-experience-id]');
+  if (!button || !activeTrip) return;
+  const { experienceId } = button.dataset;
+  const index = activeTrip.savedExperienceIds.indexOf(experienceId);
+  const trip = trips.setSavedExperience(activeTrip.id, experienceId, false);
+  if (!trip) return;
+  activeTrip = trip;
+  renderSavedExperiences();
+  showStorageStatus();
+  const remaining = $('trip-experiences-list').querySelectorAll('button');
+  (remaining[Math.min(index, remaining.length - 1)] ?? $('trip-saved-title')).focus();
+  announce(`Đã bỏ lưu trải nghiệm ${experienceById[experienceId].name}.`);
+});
+
 function tripDates(trip) {
   const { startDate, endDate } = trip.draft.form;
   const first = Number.isInteger(dateIndex(startDate)) ? `${shortDate(startDate)}/${year(startDate)}` : '';
@@ -835,6 +868,11 @@ function tripStatus(trip) {
 }
 
 function renderHome() {
+  for (const link of $('home-view').querySelectorAll('[data-home-experience]')) {
+    const item = experienceById[link.dataset.homeExperience];
+    link.hidden = !item || !experiencePlaces(item).length;
+    if (!link.hidden) link.href = experienceHref(item.id);
+  }
   const [recent] = trips.list();
   $('home-recent').hidden = !recent;
   if (!recent) return;
@@ -918,6 +956,7 @@ function renderRoute(focus = false, previousHash = '') {
   $('trip-list-view').hidden = !showProjects;
   $('trip-header').hidden = !activeTrip;
   $('trip-saved').hidden = !activeTrip;
+  $('trip-experiences').hidden = !activeTrip?.savedExperienceIds.length;
   $('trip-workspace').hidden = !activeTrip;
   $('site-footer').hidden = showHome || showLibrary;
   $('home-link').setAttribute('aria-current', showHome ? 'page' : 'false');
@@ -951,13 +990,18 @@ function renderRoute(focus = false, previousHash = '') {
     updateTripControls();
     renderTripLibraryContext();
     renderSavedPlaces();
+    renderSavedExperiences();
     renderPlan();
     if (focus) {
       if (!viewingConfirmed && libraryReturn?.place) {
         const firstError = Object.keys(errors)[0];
         const field = firstError ?? libraryReturn.field ?? 'sessions';
         focusTripField(field);
-      } else $(params.get('saved') === '1' ? 'trip-saved-title' : 'trip-title').focus();
+      } else {
+        const saved = params.get('saved');
+        const heading = saved === 'experience' && activeTrip.savedExperienceIds.length ? 'trip-experiences-title' : saved ? 'trip-saved-title' : 'trip-title';
+        $(heading).focus();
+      }
     }
   } else if (showProjects) {
     if (hash !== '#trips') history.replaceState(null, '', '#trips');
@@ -968,7 +1012,7 @@ function renderRoute(focus = false, previousHash = '') {
       (previous || $('trip-list-title')).focus();
     }
   } else if (showLibrary) {
-    renderLibrary(hash, focus, previousHash, renderLibraryActions, savedPlacesHash);
+    renderLibrary(hash, focus, previousHash, renderLibraryActions, savedItemsHash);
   } else {
     document.title = 'Home · NonLa Wander';
     renderHome();
@@ -1005,7 +1049,7 @@ for (const button of document.querySelectorAll('[data-create-trip]')) {
 }
 
 const renderLibraryActions = setupLibraryActions({
-  trips, createTrip, tripHash, savedPlacesHash, showStorageStatus,
+  trips, createTrip, tripHash, savedItemsHash, showStorageStatus,
   showAdded(tripId, placeName, returnHref) {
     addedVisitNotice = { tripId, placeName };
     location.hash = tripHash(tripId, false, returnHref);
