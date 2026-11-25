@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#f6f0e5">
+  <meta name="theme-color" content="#fcfcfb">
   <meta name="description" content="Xếp một lịch đi bộ theo ý bạn quanh Hồ Gươm và Phố cổ Hà Nội.">
   <title>Home · NonLa Wander</title>
   <link rel="icon" href="/assets/nonla.svg" type="image/svg+xml">
@@ -13,74 +13,87 @@
 <body class="is-home">
   <a class="skip-link" href="#main-content">Đến nội dung chính</a>
   <header class="site-header">
-    <a class="app-brand" href="#home" aria-label="NonLa Wander, về Home">
-      <span class="app-brand-mark" aria-hidden="true">N</span>
-      <span><strong>NonLa Wander</strong><small>Hà Nội</small></span>
-    </a>
-    <nav class="app-nav" aria-label="Điều hướng chính">
-      <a id="home-link" href="#home" aria-current="page"><span data-icon="home"></span>Home</a>
-      <a id="trips-link" href="#trips"><span data-icon="projects"></span>My Projects</a>
-      <a id="library-link" href="#library"><span data-icon="library"></span>Library</a>
-    </nav>
-    <div id="sidebar-recent" class="sidebar-recent" hidden>
-      <p>Tiếp tục</p>
-      <a id="sidebar-trip-link"><span data-icon="route"></span><span id="sidebar-trip-name"></span></a>
+    <div class="nav-shell">
+      <a class="app-brand" href="#home" aria-label="NonLa Wander, về Home">
+        <span class="app-brand-mark" aria-hidden="true">N</span>
+        <strong>NonLa Wander</strong>
+      </a>
+      <nav class="app-nav" aria-label="Điều hướng chính">
+        <a id="home-link" href="#home" aria-current="page"><span class="nav-icon" data-icon="home" aria-hidden="true"></span>Home</a>
+        <a id="trips-link" href="#trips"><span class="nav-icon" data-icon="folder" aria-hidden="true"></span>My Projects</a>
+        <a id="library-link" href="#library"><span class="nav-icon" data-icon="book-open" aria-hidden="true"></span>Library</a>
+      </nav>
     </div>
   </header>
 
   <main id="main-content" class="wrapper" tabindex="-1">
     <p id="storage-notice" class="storage-notice" role="status" hidden>Chưa thể lưu vào trình duyệt. Thay đổi chưa lưu chỉ có trong trang này.</p>
     <section id="home-view" aria-labelledby="home-title">
-      <div class="home-context" aria-hidden="true"><span>Home</span><span>NonLa Wander / Hà Nội</span></div>
-      <div class="home-lead">
-        <div class="home-intro">
-          <h1 id="home-title" tabindex="-1">Lên lịch đi chơi <br>ở Hà Nội</h1>
-          <p>Chọn những nơi bạn thích, xếp theo buổi rảnh và xem trước thời gian đi bộ, chi phí.</p>
+      <div class="home-opening">
+        <div class="home-visual">
+          <img src="/assets/pho-duong-tau.webp" alt="Đường ray uốn qua dãy nhà và quán nhỏ trên phố đường tàu Hà Nội" width="612" height="459" fetchpriority="high">
+        </div>
+        <header class="home-intro wrapper">
+          <h1 id="home-title" tabindex="-1"><span>Tạo lịch chuyến đi</span> <em>cùng AI</em></h1>
+          <p>Từ một quán muốn thử đến cả buổi dạo Hà Nội, gom những điểm yêu thích và xếp lịch theo thời gian, ngân sách của bạn.</p>
           <div class="home-actions">
             <button type="button" id="home-create-trip" class="primary-button" data-create-trip><span data-icon="plus"></span>Tạo chuyến đi</button>
-            <a id="home-library-link" class="home-library-link" href="#library">Khám phá thư viện <span aria-hidden="true">→</span></a>
+            <a id="home-library-link" class="text-button home-library-link" href="#library">Khám phá thư viện <span aria-hidden="true">↗</span></a>
           </div>
-        </div>
+          <p class="home-ai-note">Bạn có thể tự xếp lịch ngay. Gợi ý bằng AI đang được phát triển.</p>
+        </header>
+      </div>
 
-        <section id="home-recent" class="home-recent" aria-labelledby="home-recent-title" hidden>
-          <div class="home-section-heading">
-            <h2 id="home-recent-title">Chuyến gần đây</h2>
-            <a class="home-projects-link" href="#trips">Xem My Projects <span aria-hidden="true">→</span></a>
+      <section id="home-recent" class="home-recent wrapper" aria-labelledby="home-recent-title" hidden>
+        <div class="home-section-heading">
+          <h2 id="home-recent-title">Chuyến gần đây</h2>
+          <a class="home-projects-link" href="#trips">Xem My Projects <span aria-hidden="true">↗</span></a>
+        </div>
+        <a id="recent-trip-link" class="home-trip" aria-labelledby="recent-trip-name recent-trip-action" aria-describedby="recent-trip-details">
+          <span><strong id="recent-trip-name"></strong><small id="recent-trip-details"></small></span>
+          <span id="recent-trip-action" class="home-trip-action">Mở chuyến <span aria-hidden="true">→</span></span>
+        </a>
+      </section>
+
+      <div class="home-discover wrapper">
+        <section class="home-story" aria-labelledby="home-sight-title">
+          <div class="home-story-copy">
+            <p class="home-category">Địa điểm tham quan</p>
+            <h2 id="home-sight-title">Văn Miếu – Quốc Tử Giám</h2>
+            <p>Qua Khuê Văn Các, dạo giữa những sân gạch và hàng cây. Dành thêm chút thời gian để ngắm bia tiến sĩ và những chi tiết trên mái ngói.</p>
           </div>
-          <a id="recent-trip-link" class="home-trip" aria-labelledby="recent-trip-action recent-trip-name" aria-describedby="recent-trip-details">
-            <span><strong id="recent-trip-name"></strong><small id="recent-trip-details"></small></span>
-            <span id="recent-trip-action" class="home-trip-action">Mở chuyến <span aria-hidden="true">→</span></span>
-          </a>
+          <figure class="home-story-photo home-sight-photo">
+            <img src="/assets/van-mieu.webp" alt="Khuê Văn Các với gác gỗ đỏ và mái ngói tại Văn Miếu" width="1200" height="798" loading="lazy">
+          </figure>
         </section>
 
-        <section class="home-sample" aria-labelledby="home-sample-title">
-          <div class="home-sample-label"><span>Lịch mẫu</span><span>1 buổi</span></div>
-          <h2 id="home-sample-title">Một chiều quanh hồ</h2>
-          <ol>
-            <li><time datetime="14:00">14:00</time><div><strong>Cà phê trứng</strong><small>Ghé quán · 45 phút</small></div></li>
-            <li><time datetime="14:55">14:55</time><div><strong>Đền Ngọc Sơn</strong><small>Tham quan · 45 phút</small></div></li>
-            <li><time datetime="16:00">16:00</time><div><strong>Dạo Hồ Gươm</strong><small>Đi dạo · 35 phút</small></div></li>
-          </ol>
+        <section class="home-story home-story-reversed" aria-labelledby="home-food-title">
+          <div class="home-story-copy">
+            <p class="home-category">Quán ăn ngon</p>
+            <h2 id="home-food-title">Bún chả Hà Nội</h2>
+            <p>Một suất bún trắng, chả nướng và rau thơm. Gắp từng đũa bún chấm vào bát nước mắm chua ngọt để thưởng thức đủ vị.</p>
+          </div>
+          <figure class="home-story-photo">
+            <img src="/assets/bun-cha.webp" alt="Một suất bún chả với thịt nướng, bún trắng và rau thơm" width="1200" height="800" loading="lazy">
+          </figure>
+        </section>
+
+        <section class="home-story" aria-labelledby="home-play-title">
+          <div class="home-story-copy">
+            <p class="home-category">Địa điểm giải trí</p>
+            <h2 id="home-play-title">Hẹn bạn bè đi chơi</h2>
+            <p>Rủ nhau hát trong phòng music box nếu cả nhóm mê nhạc, hoặc ghé quán net để chơi vài ván cùng nhau.</p>
+          </div>
+          <figure class="home-story-photo">
+            <img src="/assets/quan-net.webp" alt="Ảnh minh họa một phòng chơi game có dãy máy tính và ghế chơi game" width="1200" height="675" loading="lazy">
+          </figure>
         </section>
       </div>
 
-      <section class="home-benefits" aria-labelledby="home-benefits-title">
-        <h2 id="home-benefits-title">Từ danh sách đã lưu đến một lịch đi được</h2>
-        <dl>
-          <div><dt>Địa điểm nằm rải rác</dt><dd>Gom những điểm muốn ghé vào cùng một chuyến.</dd></div>
-          <div><dt>Chưa biết ghé đâu trước</dt><dd>Xếp theo từng buổi và xem thời gian đi bộ giữa các điểm.</dd></div>
-          <div><dt>Khó ước tính chi phí</dt><dd>Xem chi phí dự kiến để điều chỉnh lịch theo ngân sách của nhóm.</dd></div>
-        </dl>
-      </section>
-
-      <section class="home-steps" aria-labelledby="home-steps-title">
-        <h2 id="home-steps-title">Bắt đầu trong 3 bước</h2>
-        <ol>
-          <li><div><strong>Tạo chuyến</strong><p>Chọn ngày và những buổi bạn rảnh.</p></div></li>
-          <li><div><strong>Chọn địa điểm</strong><p>Đánh dấu những điểm bạn muốn ghé trong danh sách địa điểm mẫu.</p></div></li>
-          <li><div><strong>Xếp lịch</strong><p>Xếp lịch đi bộ rồi kiểm tra giờ ghé, đường đi và chi phí.</p></div></li>
-        </ol>
-      </section>
+      <footer class="home-footer wrapper">
+        <a href="#home" class="home-projects-link" id="home-top-link">Về đầu trang <span aria-hidden="true">↑</span></a>
+        <a href="/assets/nguon-anh.html" class="home-projects-link">Nguồn ảnh</a>
+      </footer>
     </section>
 
     <section id="library-view" class="library-view" aria-labelledby="library-title" hidden>

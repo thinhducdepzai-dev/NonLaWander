@@ -1,4 +1,5 @@
 import { areas, exampleDraft, periodById, periods, placeById, places, transports, vibes } from './data.js';
+import { setupHomeMotion } from './home.js';
 import { icon } from './icons.js';
 import { getLibraryReturn, renderLibrary, setupLibraryActions, slotLabel, tripLibraryHref } from './library.js';
 import { applyEdit, clock, createPlan, dateAt, dateIndex, draftBudget, inspectPlan, moveDestinations, openingHours, placeCost, prepareRequest, weekday } from './planner.js';
@@ -11,6 +12,7 @@ const form = $('trip-form');
 const participants = $('participants');
 const days = $('day-list');
 const timeline = $('timeline');
+const updateHomePhoto = setupHomeMotion($('home-view'));
 const dayPageSize = 7;
 const currency = new Intl.NumberFormat('vi-VN');
 const money = (amount) => `${currency.format(amount)} ₫`;
@@ -835,7 +837,6 @@ function tripStatus(trip) {
 function renderHome() {
   const [recent] = trips.list();
   $('home-recent').hidden = !recent;
-  $('sidebar-recent').hidden = !recent;
   if (!recent) return;
 
   const slots = recent.draft.plan?.slots;
@@ -844,9 +845,7 @@ function renderHome() {
     : tripDates(recent);
   const href = tripHash(recent.id);
   $('recent-trip-link').href = href;
-  $('sidebar-trip-link').href = href;
   $('recent-trip-name').textContent = recent.name;
-  $('sidebar-trip-name').textContent = recent.name;
   $('recent-trip-details').textContent = `${tripStatus(recent)} · ${details}`;
 }
 
@@ -924,7 +923,6 @@ function renderRoute(focus = false, previousHash = '') {
   $('home-link').setAttribute('aria-current', showHome ? 'page' : 'false');
   $('trips-link').setAttribute('aria-current', showProjects ? 'page' : activeTrip ? 'location' : 'false');
   $('library-link').setAttribute('aria-current', showLibrary ? (hash.startsWith('#library/') ? 'location' : 'page') : 'false');
-  $('sidebar-recent').hidden = true;
   if (!showLibrary) {
     $('library-view').hidden = true;
     $('library-detail').hidden = true;
@@ -978,6 +976,7 @@ function renderRoute(focus = false, previousHash = '') {
       window.scrollTo({ top: 0, behavior: 'instant' });
       $('home-title').focus({ preventScroll: true });
     }
+    updateHomePhoto();
   }
   showStorageStatus();
 }
