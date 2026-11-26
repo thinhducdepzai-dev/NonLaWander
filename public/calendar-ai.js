@@ -69,14 +69,6 @@ function sessionReply(text, calendar, action, isCommand, preferences) {
   const refersToSession = named.size || /\b(su kien nao|cac su kien|buoi dien|suat dien|hoa nhac|suat nao)\b/.test(text);
   if (!refersToSession || (action && action !== 'create')) return null;
   const inTrip = sessionsInRange(calendar);
-  if (named.size > 1) {
-    const sessions = [...named].flatMap((name) => {
-      const available = inTrip.filter((session) => session.name === name);
-      return available.length ? available : eventSessions.filter((session) => session.name === name);
-    }).toSorted((a, b) => sessionTiming(a).start - sessionTiming(b).start).map(({ id }) => id);
-    return { reply: isCommand ? 'Bạn muốn thêm suất nào? Hãy cho mình tên chương trình và giờ bắt đầu.'
-      : 'Đây là các suất đã biết của những chương trình bạn muốn so sánh.', sessions };
-  }
   const dates = [...text.matchAll(sessionDatePattern)];
   const clocks = [...text.matchAll(sessionClockPattern)];
   const days = [...text.matchAll(/\b(?:thu\s+(hai|ba|tu|nam|sau|bay|[2-7])|chu nhat)\b/g)]
@@ -113,7 +105,29 @@ function sessionReply(text, calendar, action, isCommand, preferences) {
   const alternatives = inTrip.filter(matches)
     .toSorted((a, b) => geography.score({ id: b.placeId }) - geography.score({ id: a.placeId }));
   const links = alternatives.map(({ id }) => id);
-  if (!links.length && (date || days.length || clock)) {
+  const hasTimeFilter = Boolean(date || days.length || clock);
+  if (named.size > 1) {
+    const choose = 'Bạn muốn thêm suất nào? Hãy cho mình tên chương trình và giờ bắt đầu.';
+    if (hasTimeFilter) {
+      const timeFilter = [date && `ngày ${[day, month, year].filter(Boolean).join('/')}`, days.length && 'thứ đã nêu',
+        clock && `giờ ${timeOf(hours * 60 + minutes)}`].filter(Boolean).join(', ');
+      const summary = [...named].map((name) => {
+        const starts = new Set(alternatives.filter((session) => session.name === name).map((session) => session.starts));
+        return starts.size ? `${name} có suất lúc ${[...starts].join(', ')}.`
+          : `${name} không có suất khớp ${timeFilter} trong chuyến.`;
+      });
+      if (isCommand && links.length) summary.push(choose);
+      return { reply: summary.join(' '), sessions: links };
+    }
+
+    const hasInTrip = new Set(alternatives.map(({ name }) => name));
+    const outside = eventSessions.filter((session) => matches(session) && !hasInTrip.has(session.name));
+    const sessions = [...alternatives, ...outside].toSorted((a, b) => sessionTiming(a).start - sessionTiming(b).start).map(({ id }) => id);
+    const intro = isCommand ? choose : 'Đây là các suất đã biết của những chương trình bạn muốn so sánh.';
+    const note = ' Một số chương trình chưa có suất trong chuyến, nên mình liệt kê thêm suất ngoài chuyến để bạn tham khảo.';
+    return { reply: intro + (outside.length ? note : ''), sessions };
+  }
+  if (!links.length && hasTimeFilter) {
     const outside = isCommand && named.size && clock ? eventSessions.filter(matches) : [];
     if (outside.length === 1) return { direct: true, command: { type: 'add-session', sessionId: outside[0].id },
       label: `Thêm “${outside[0].name}”.` };

@@ -169,6 +169,38 @@ test('chat lists both named programs in either order or a comparison without add
   const narrowed = { ...calendar, end: at('2026-12-19', '18:00') };
   const choice = calendarDemoReply('Thêm Ký ức phố cổ hoặc Đêm nghệ thuật', narrowed);
   assert.deepEqual(choice.sessions, [free, unknown]);
+  assert.match(choice.reply, /ngoài chuyến để bạn tham khảo/);
+  assert.equal(choice.command, undefined);
+});
+
+test('chat filters every named program by the same Hanoi date, weekday and time without writing', () => {
+  const { store, storage } = fixture();
+  const { id, draft } = trip(store);
+  const calendar = calendarOf(draft);
+  const messages = [];
+  for (const text of [
+    'Ngày 19/12/2026 có Hòa nhạc cuối tuần hay Ký ức phố cổ?',
+    'Ngày 19/12/2026 có Ký ức phố cổ hay Hòa nhạc cuối tuần?',
+  ]) {
+    const answer = calendarDemoReply(text, calendar);
+    assert.match(answer.reply, /Hòa nhạc cuối tuần không có suất khớp ngày 19\/12\/2026/);
+    assert.match(answer.reply, /Ký ức phố cổ có suất lúc 16:00/);
+    assert.deepEqual(answer.sessions, [free]);
+    assert.equal(answer.command, undefined);
+    messages.push({ author: 'you', text }, { author: 'demo', text: answer.reply, sessions: answer.sessions });
+    store.saveConversation(id, { messages });
+    const reopened = createTripStore(storage).get(id);
+    assert.deepEqual(reopened.conversation.messages.at(-1).sessions, [free]);
+    assert.deepEqual(reopened.draft, draft);
+  }
+
+  assert.deepEqual(calendarDemoReply('Thứ Sáu có Hòa nhạc cuối tuần hay Ký ức phố cổ?', calendar).sessions, [first, second]);
+  assert.deepEqual(calendarDemoReply('Lúc 19:30 có Hòa nhạc cuối tuần hay Ký ức phố cổ?', calendar).sessions, [second]);
+  assert.deepEqual(calendarDemoReply('Thứ Sáu ngày 19/12/2026 lúc 16:00 có Hòa nhạc cuối tuần hay Ký ức phố cổ?', calendar).sessions, []);
+  assert.deepEqual(calendarDemoReply('Ngày 20/12/2026 có Ký ức phố cổ hay Đêm nghệ thuật?', calendar).sessions, []);
+  const choice = calendarDemoReply('Thêm Hòa nhạc cuối tuần hoặc Ký ức phố cổ ngày 19/12/2026', calendar);
+  assert.match(choice.reply, /muốn thêm suất nào/);
+  assert.deepEqual(choice.sessions, [free]);
   assert.equal(choice.command, undefined);
 });
 
