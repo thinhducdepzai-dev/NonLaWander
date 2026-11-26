@@ -254,3 +254,42 @@ test('final planning applies once to the latest draft, attaches in place, and ca
   assert.equal(undone.draft.participants, before.draft.participants);
   assert.deepEqual(undone.confirmed, confirmed);
 });
+
+test('chat distinguishes an action from a prohibition before writing the saved draft', async (t) => {
+  const moved = { start: at('13:00'), end: at('14:00') };
+  const cases = [
+    { message: 'Đổi giờ Ăn trưa sang 13h, đừng xóa nhé', text: /Đổi giờ “Ăn trưa”/, action: 'move', moved },
+    { message: 'Đổi giờ Ăn trưa sang 13h và đừng xóa nhé', text: /Đổi giờ “Ăn trưa”/, action: 'move', moved },
+    { message: 'Đừng xóa Ăn trưa', text: /giữ nguyên lịch nháp/ },
+    { message: 'Xóa sự kiện Ăn trưa', text: /Xóa “Ăn trưa”/, action: 'remove' },
+    { message: 'Xóa Ăn trưa, đừng xóa Ăn trưa', text: /xác nhận lại/ },
+    { message: 'Đổi giờ Ăn trưa sang 13h rồi xóa Ăn trưa', text: /xác nhận lại/ },
+  ];
+  for (const { message, text, action, moved: times } of cases) {
+    await t.test(message, () => {
+      const storage = browserStorage();
+      const store = createTripStore(storage);
+      const { id } = configuredTrip(store);
+      const { event } = store.changeCalendar(id, { type: 'create', event: lunch });
+      const other = store.changeCalendar(id, { type: 'create', event: {
+        title: 'Điểm ngày khác', category: 'sight', start: at('09:00', sunday), end: at('10:00', sunday),
+      } }).event;
+      const before = store.get(id).draft;
+      const response = calendarDemoReply(message, calendarOf(before));
+      assert.match(response.reply ?? response.label, text);
+      assert.equal(response.command?.type, action);
+      if (action) {
+        assert.equal(response.direct, true);
+        assert.equal(response.command.id, event.id);
+        const { trip, undoId } = store.changeCalendar(id, response.command);
+        assert.ok(trip);
+        assert.deepEqual(createTripStore(storage).get(id).draft.calendar.events, [
+          ...(times ? [{ ...event, ...times }] : []), other,
+        ]);
+        assert.deepEqual(store.undoCalendar(id, undoId).draft.calendar.events, before.calendar.events);
+      } else {
+        assert.deepEqual(createTripStore(storage).get(id).draft, before);
+      }
+    });
+  }
+});

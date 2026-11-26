@@ -4,6 +4,8 @@ import { availableStart, dayCount, dayMinutes, dayStart, momentLabel, placeCateg
 const fold = (value) => value.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').replaceAll('đ', 'd');
 const $ = (id) => document.getElementById(id);
 const money = new Intl.NumberFormat('vi-VN');
+const editVerb = /^(?:(?:hay|vui long|nho|chi)\s+)*(?:(dung(?: co)?|cho|khong(?: duoc| can)?)\s+)?(doi (?:ngay gio|gio|ngay)|bo su kien|xoa|dich|doi|thay|gan|them|tao)\b/;
+const clockPattern = /\b([01]?\d|2[0-3])(?:\s*:\s*([0-5]\d)|\s*h\b)/;
 
 export function parseCalendarMessage(message) {
   const text = fold(message);
@@ -21,7 +23,7 @@ export function parseCalendarMessage(message) {
 
 const weekdays = ['chu nhat', 'thu hai', 'thu ba', 'thu tu', 'thu nam', 'thu sau', 'thu bay'];
 function requestedStart(text, parsed, calendar, duration, contextStart = calendar.start) {
-  const clock = text.match(/\b([01]?\d|2[0-3])(?:\s*:\s*([0-5]\d)|\s*h\b)/);
+  const clock = text.match(clockPattern);
   const days = Array.from({ length: Math.min(dayCount(calendar), 7) }, (_, index) => dayStart(calendar.start) + index * dayMinutes);
   const day = parsed.weekday ? days.find((minute) => weekdays[new Date(minute * 60000).getUTCDay()] === parsed.weekday) : dayStart(contextStart);
   if (day === undefined) return null;
@@ -32,16 +34,49 @@ function requestedStart(text, parsed, calendar, duration, contextStart = calenda
   return (parsed.weekday || parsed.period) && (open < day || open >= day + dayMinutes || Number.isFinite(start) && open < start) ? null : open;
 }
 
+function editInstructions(text) {
+  const clauses = [];
+  const separators = /\s*[,;.!]\s*|\s+(?:nhung|roi|sau do|dong thoi|va|hoac)\s+|\s+(?=(?:dung|cho|khong)\s)/g;
+  let start = 0;
+  for (const separator of text.matchAll(separators)) {
+    const next = separator.index + separator[0].length;
+    if (!editVerb.test(text.slice(next))) continue;
+    clauses.push(text.slice(start, separator.index));
+    start = next;
+  }
+  clauses.push(text.slice(start));
+  return clauses.flatMap((clause) => {
+    const match = editVerb.exec(clause);
+    if (!match) return [];
+    const [, negation, verb] = match;
+    const action = /^(xoa|bo su kien)$/.test(verb) ? 'remove'
+      : /^(dich|doi (gio|ngay))/.test(verb) || (verb === 'doi' && clockPattern.test(clause)) ? 'move'
+        : /^(them|tao)$/.test(verb) ? 'create' : 'attach';
+    return [{ clause, action, negated: Boolean(negation), verb }];
+  });
+}
+
 export function calendarDemoReply(message, calendar, contextId, preferences = {}) {
-  const text = fold(message);
-  const parsed = parseCalendarMessage(message);
+  const original = fold(message).trim();
+  let text = original;
   const isQuestion = /[?？]/.test(message) || /^(?:neu|gia su|lieu|cho hoi|minh co the|co the|ban co the)\b/.test(text) ||
     /\b(co kip|kip khong|duoc khong|co the khong|hop khong|thi sao|nen khong|co tot khong)\b|\bkhong[.!]?\s*$/.test(text);
   const hypothetical = /^(?:thu|muon xem)\b/.test(text);
-  const isCommand = !isQuestion && !hypothetical &&
-    /^(?:(?:hay|vui long)\s+)?(?:tao|them|gan|doi|thay|xoa|dich|bo su kien)\b/.test(text) &&
-    !/\b(?:roi|sau do|dong thoi)\s+(?:tao|them|gan|doi|thay|xoa|dich)\b/.test(text);
-  const clocks = text.match(/\b(?:[01]?\d|2[0-3])(?:\s*:[0-5]\d|\s*h\b)/g) ?? [];
+  // Scope each verb to its instruction so “đừng xóa” cannot select remove.
+  const hasInstruction = hypothetical || (!isQuestion && editVerb.test(text));
+  const instructions = hasInstruction ? editInstructions(text.replace(/^(?:thu|muon xem)\s+/, '')) : [];
+  const affirmative = instructions.filter(({ negated }) => !negated);
+  const [instruction] = affirmative;
+  const contradicts = instruction && instructions.some(({ action, negated, verb }) =>
+    negated && (action === instruction.action || (verb === 'doi' && instruction.action === 'move')));
+  if (affirmative.length > 1 || contradicts) {
+    return { reply: 'Bạn có thể xác nhận lại thao tác muốn thực hiện không? Mình sẽ giữ nguyên lịch nháp trong lúc chờ.' };
+  }
+  if (instructions.length && !instruction) return { reply: 'Mình sẽ giữ nguyên lịch nháp.' };
+  const isCommand = Boolean(instruction && !hypothetical);
+  if (instruction) text = instruction.clause;
+  const parsed = parseCalendarMessage(text === original ? message : text);
+  const clocks = text.match(new RegExp(clockPattern.source, 'g')) ?? [];
   const clockSpecified = clocks.length > 0;
   if (isCommand && clocks.length > 1) return { reply: 'Bạn muốn dùng mốc giờ nào trước? Bản demo xử lý từng thay đổi một.' };
   const menu = experiences.find(({ name }) => text.includes(fold(name)));
@@ -59,20 +94,21 @@ export function calendarDemoReply(message, calendar, contextId, preferences = {}
     return { consultation: { type: 'create', event: { title: match.name, category: placeCategory(match), placeId: match.id, start, end: start + match.duration } },
       label: `${match.name} mất khoảng ${match.duration} phút.` };
   }
-  if (isCommand && /^(?:(?:hay|vui long)\s+)?(?:them|tao)\b/.test(text) && !match) {
+  if (isCommand && instruction.action === 'create' && !match) {
     return { reply: 'Bạn muốn thêm địa điểm nào? Hãy ghi tên quán trong Library cùng ngày và giờ để mình kiểm tra.' };
   }
-  const namedEdit = /\b(gan|doi|thay|xoa|dich)\b|\bbo su kien\b/.test(text);
+  const action = instruction?.action;
+  const namedEdit = action && action !== 'create';
   // Thao tác chỉ chạy ngay khi lời nhắn chỉ đích danh một sự kiện hoặc có ngữ cảnh từ menu.
   if (/\b(?:ca|het|tat ca) (?:buoi|lich|su kien)\b/.test(text) && namedEdit) {
     return { reply: 'Bạn muốn bắt đầu từ sự kiện nào? Bản demo có thể xem trước thay đổi cho từng sự kiện.' };
   }
   if (namedEdit && !target && named.length > 1) return { reply: 'Có nhiều sự kiện cùng tên. Mở Hỏi ý kiến AI từ menu của lượt bạn muốn sửa.' };
-  if (namedEdit && target && (isCommand || hypothetical)) {
-    if (/\b(xoa|bo su kien)\b/.test(text)) return { command: { type: 'remove', id: target.id }, direct: isCommand, label: `Xóa “${target.title}”.` };
-    if (match) return { command: { type: 'attach', id: target.id, placeId: match.id }, direct: isCommand,
+  if (namedEdit && target) {
+    if (action === 'remove') return { command: { type: 'remove', id: target.id }, direct: isCommand, label: `Xóa “${target.title}”.` };
+    if (action === 'attach' && match) return { command: { type: 'attach', id: target.id, placeId: match.id }, direct: isCommand,
       label: `Gắn ${match.name} vào “${target.title}”.` };
-    if (/\b(doi|dich)\b/.test(text) && clockSpecified) {
+    if (action === 'move' && clockSpecified) {
       const start = requestedStart(text, parsed, calendar, target.end - target.start, target.start);
       if (start !== null) return { command: { type: 'move', id: target.id, start }, direct: isCommand,
         label: `Đổi giờ “${target.title}”.` };
@@ -93,7 +129,7 @@ export function calendarDemoReply(message, calendar, contextId, preferences = {}
   const score = (place) => 2 * Number(selectedAreas.some(({ id }) => place.area === id)) +
     Number(selectedVibes.some(({ id }) => place.vibes.includes(id)));
   const related = candidates.toSorted((a, b) => score(b) - score(a));
-  if (namedEdit && hypothetical && target && !match) {
+  if (action === 'attach' && hypothetical && target && !match) {
     const replacement = related.find(({ id }) => id !== target.placeId);
     if (replacement) return { command: { type: 'attach', id: target.id, placeId: replacement.id },
       label: `Thử ${replacement.name} cho “${target.title}”.` };
