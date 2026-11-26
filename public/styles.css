@@ -1196,3 +1196,25 @@ body.is-calendar main.wrapper { --wrap: 1400px; }
   .calendar-layout:has(.is-ward-step:not([hidden])) { --panel-width: clamp(25rem, 37vw, 33rem); }
   .is-ward-step .ward-explorer { grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); gap: .8rem; }
 }
+
+.library-modes { display: flex; gap: .5rem; flex-wrap: wrap; margin-block: 1rem; }
+.library-modes .text-button { text-decoration: none; border-radius: 999px; min-height: 2.75rem; }
+.library-modes [aria-current="page"], .library-modes [aria-current="page"]:hover { background: var(--accent); border-color: var(--accent); color: var(--white); }
+.library-event-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.library-event-filters :is(button, .field-error) { grid-column: 1 / -1; }
+.library-event-filters input { padding-inline: .55rem; min-width: 0; }
+.library-event-count { margin: .8rem 0 .6rem; }
+.event-card-time { color: var(--accent-strong); font-weight: 750; font-size: .95rem; margin-bottom: .2rem; }
+.event-detail-facts { display: grid; gap: .65rem; padding: .9rem 1rem; margin-block: 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+.event-detail-facts dt { font-size: .85rem; color: var(--muted); }
+.event-detail-facts dd { margin: 0; font-weight: 650; }
+.event-detail-facts a { min-height: 2.75rem; margin: 0; }
+.calendar-session-status { margin-block: .4rem; padding: .5rem .75rem; border-radius: var(--small-radius); background: var(--accent-soft); color: var(--accent-strong); }
+#calendar-library-events, .chat-session-link { text-decoration: none; }
+.chat-session-link { margin-block-start: .4rem; width: 100%; min-height: 2.75rem; white-space: normal; text-align: start; }
+.calendar-event[data-category="session"] { border-color: #3f7262; background: var(--accent-soft); }
+@media (min-width: 710px) {
+  .library-filters.library-event-filters { grid-template-columns: minmax(0, 13rem) minmax(0, 13rem) auto; justify-content: start; align-items: end; }
+  .library-event-filters button { grid-column: auto; min-height: 44px; }
+  .event-detail-facts { grid-template-columns: 1fr 1fr auto; }
+}

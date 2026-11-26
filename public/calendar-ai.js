@@ -1,12 +1,13 @@
-import { areas, experienceById, experiencePlaces, experiences, libraryPlaces as places, vibes } from './data.js';
-import { availableStart, dayCount, dayMinutes, dayStart, momentLabel, placeCategory, timeOf } from './calendar.js';
+import { areas, eventSessionById, eventSessions, experienceById, experiencePlaces, experiences, libraryPlaces as places, vibes } from './data.js';
+import { availableStart, dayCount, dayMinutes, dayStart, minuteInDay, momentLabel, placeCategory, sessionTimeLabel, sessionTiming, timeOf } from './calendar.js';
+import { eventLibraryHref, sessionsInRange } from './library-events.js';
 import { wardPreference } from './wards.js';
 
 const fold = (value) => value.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').replaceAll('đ', 'd');
 const $ = (id) => document.getElementById(id);
 const money = new Intl.NumberFormat('vi-VN');
 const editVerb = /^(?:(?:hay|vui long|nho|chi)\s+)*(?:(dung(?: co)?|cho|khong(?: duoc| can)?)\s+)?(doi (?:ngay gio|gio|ngay)|bo su kien|xoa|dich|doi|thay|gan|them|tao)\b/;
-const clockPattern = /\b([01]?\d|2[0-3])(?:\s*:\s*([0-5]\d)|\s*h\b)/;
+const clockPattern = /\b([01]?\d|2[0-3])(?:\s*[:h]\s*([0-5]\d)\b|\s*h\b)/;
 
 export function parseCalendarMessage(message) {
   const text = fold(message);
@@ -57,6 +58,31 @@ function editInstructions(text) {
   });
 }
 
+function sessionReply(text, calendar, action, isCommand, parsed, preferences) {
+  const named = eventSessions.find(({ name }) => text.includes(fold(name)));
+  const refersToSession = named || /\b(su kien nao|cac su kien|buoi dien|suat dien|hoa nhac|suat nao)\b/.test(text);
+  if (!refersToSession || (action && action !== 'create')) return null;
+  const clock = text.match(clockPattern);
+  const minute = clock && Number(clock[1]) * 60 + Number(clock[2] ?? 0);
+  const matches = (session) => {
+    const start = sessionTiming(session).start;
+    return (!named || session.name === named.name) && (!/\bhoa nhac\b/.test(text) || named || fold(session.name).includes('hoa nhac')) &&
+      (!clock || minuteInDay(start) === minute) &&
+      (!parsed.weekday || weekdays[new Date(start * 60000).getUTCDay()] === parsed.weekday);
+  };
+  const geography = wardPreference(preferences.wardIds);
+  const alternatives = sessionsInRange(calendar).filter(matches)
+    .toSorted((a, b) => geography.score({ id: b.placeId }) - geography.score({ id: a.placeId }));
+  const links = alternatives.map(({ id }) => id);
+  if (!isCommand) return links.length ? { reply: 'Các suất sự kiện demo trong thời gian chuyến.', sessions: links }
+    : { reply: 'Chưa có suất demo khớp yêu cầu trong thời gian chuyến.' };
+  if (alternatives.length > 1) return { reply: 'Có nhiều suất phù hợp. Bạn muốn thêm suất lúc mấy giờ?', sessions: links };
+  const exact = alternatives[0] ?? (named && clock ? eventSessions.find(matches) : null);
+  if (!exact) return { reply: 'Chưa xác định được suất. Bạn có thể cho mình tên và giờ bắt đầu, hoặc chọn suất trong Library.' };
+  return { direct: true, command: { type: 'add-session', sessionId: exact.id },
+    label: `Thêm “${exact.name}”.` };
+}
+
 export function calendarDemoReply(message, calendar, contextId, preferences = {}) {
   const original = fold(message).trim();
   let text = original;
@@ -80,6 +106,8 @@ export function calendarDemoReply(message, calendar, contextId, preferences = {}
   const clocks = text.match(new RegExp(clockPattern.source, 'g')) ?? [];
   const clockSpecified = clocks.length > 0;
   if (isCommand && clocks.length > 1) return { reply: 'Bạn muốn dùng mốc giờ nào trước? Bản demo xử lý từng thay đổi một.' };
+  const eventAnswer = sessionReply(text, calendar, instruction?.action, isCommand, parsed, preferences);
+  if (eventAnswer) return eventAnswer;
   const menu = experiences.find(({ name }) => text.includes(fold(name)));
   const matchedPlaces = places.filter(({ name }) => text.includes(fold(name)));
   const match = matchedPlaces.length === 1 ? matchedPlaces[0] : null;
@@ -200,7 +228,7 @@ export function setupCalendarChat({ getTrip, getCalendar, save, preview, apply, 
       const switchedTrip = rendered === undefined || !rendered.startsWith(`["${trip.id}",`);
       rendered = signature;
       if (switchedTrip) input.value = '';
-      $('calendar-messages').replaceChildren(...chat.messages.map(({ author, text, choices, undoId }) => {
+      $('calendar-messages').replaceChildren(...chat.messages.map(({ author, text, choices, sessions, undoId }) => {
         const row = document.createElement('li');
         row.className = author === 'you' ? 'calendar-message-user' : 'calendar-message-demo';
         const speaker = document.createElement('span');
@@ -218,6 +246,15 @@ export function setupCalendarChat({ getTrip, getCalendar, save, preview, apply, 
           button.dataset.chatPlace = id;
           button.textContent = item.name;
           row.append(button);
+        }
+        for (const id of sessions ?? []) {
+          const session = eventSessionById[id];
+          if (!session) continue;
+          const link = document.createElement('a');
+          link.className = 'text-button chat-session-link';
+          link.href = eventLibraryHref({ sessionId: id, tripId: trip.id });
+          link.textContent = `${session.name} · ${sessionTimeLabel(session)}`;
+          row.append(link);
         }
         if (undoId && undoId === trip.draft.calendarUndoId) {
           const button = document.createElement('button');
@@ -265,7 +302,7 @@ export function setupCalendarChat({ getTrip, getCalendar, save, preview, apply, 
     const response = calendarDemoReply(message, getCalendar(), chat.contextId, preferences);
     const messages = [...chat.messages, { author: 'you', text: message }];
     const reply = (text, extras) => messages.push({ author: 'demo', text, ...extras });
-    if (response.reply) reply(response.reply, { choices: response.choices });
+    if (response.reply) reply(response.reply, { choices: response.choices, sessions: response.sessions });
     if (response.consultation) {
       const result = preview(response.consultation);
       const issue = resultIssue(result);

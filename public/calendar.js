@@ -1,10 +1,10 @@
-import { placeById } from './data.js';
+import { eventSessionById, placeById } from './data.js';
 import { clock, dateIndex, inspectPlan, newVisitId, openingHours, placeCost, walkMinutes } from './planner.js';
 
 export const dayMinutes = 1440;
 export const eventCategories = {
   sight: 'Tham quan', food: 'Ăn uống', cafe: 'Cà phê', fun: 'Giải trí',
-  travel: 'Di chuyển', rest: 'Nghỉ ngơi', other: 'Khác',
+  travel: 'Di chuyển', rest: 'Nghỉ ngơi', other: 'Khác', session: 'Suất sự kiện',
 };
 
 export function wallMinute(date, time) {
@@ -28,6 +28,23 @@ export function calendarDate(minute, weekday = false) {
 }
 export const momentLabel = (minute) => `${calendarDate(minute, true)} · ${timeOf(minute)}`;
 export const orderedEvents = (events) => events.toSorted((a, b) => a.start - b.start || a.end - b.end || a.id.localeCompare(b.id));
+
+export function sessionTiming(session) {
+  return { start: wallMinute(session.date, session.starts), end: wallMinute(session.endDate ?? session.date, session.ends) };
+}
+
+export function sessionTimeLabel(session) {
+  const { start, end } = sessionTiming(session);
+  return `${momentLabel(start)}–${dayOf(start) === dayOf(end) ? timeOf(end) : momentLabel(end)}`;
+}
+
+export const calendarCostKey = (event) => event.sessionId ? `session:${event.sessionId}` : event.placeId;
+
+export function calendarEventCost(event, prices) {
+  if (!event.sessionId) return event.placeId ? placeCost(event.placeId, prices) : null;
+  const key = calendarCostKey(event);
+  return prices && Object.hasOwn(prices, key) ? prices[key] : eventSessionById[event.sessionId]?.price ?? null;
+}
 
 export function placeCategory(place) {
   return ({ coffee: 'cafe', food: 'food', landmark: 'sight', leaf: 'sight' })[place?.icon] ?? 'other';
@@ -61,14 +78,18 @@ function validEvent(event) {
   return event && typeof event.id === 'string' && /^[a-z0-9-]+$/.test(event.id) &&
     typeof event.title === 'string' && !!event.title.trim() && event.title.length <= 120 &&
     Object.hasOwn(eventCategories, event.category) && validCalendarRange(event.start, event.end) &&
-    knownPlace(event.placeId) && ['location', 'from', 'to'].every((key) => event[key] === undefined ||
+    knownPlace(event.placeId) && (event.category === 'session'
+      ? typeof event.sessionId === 'string' && /^[a-z0-9-]+$/.test(event.sessionId) && event.fixed === true
+      : event.sessionId === undefined) && ['location', 'from', 'to'].every((key) => event[key] === undefined ||
       (typeof event[key] === 'string' && event[key].length <= 120));
 }
 
 export function isCalendar(calendar) {
-  return calendar && validCalendarRange(calendar.start, calendar.end) &&
-    [null, 'manual', 'ai'].includes(calendar.mode) && Array.isArray(calendar.events) &&
-    calendar.events.every(validEvent) && new Set(calendar.events.map(({ id }) => id)).size === calendar.events.length;
+  if (!calendar || !validCalendarRange(calendar.start, calendar.end) || ![null, 'manual', 'ai'].includes(calendar.mode) ||
+      !Array.isArray(calendar.events) || !calendar.events.every(validEvent)) return false;
+  const ids = calendar.events.map(({ id }) => id);
+  const sessions = calendar.events.flatMap(({ sessionId }) => sessionId ? [sessionId] : []);
+  return new Set(ids).size === ids.length && new Set(sessions).size === sessions.length;
 }
 
 function endpoint(value) {
@@ -105,8 +126,8 @@ export function calendarCosts(events, prices) {
   let total = 0;
   let missingCostCount = 0;
   for (const event of events) {
-    if (!event.placeId) continue;
-    const cost = placeCost(event.placeId, prices);
+    if (!calendarCostKey(event)) continue;
+    const cost = calendarEventCost(event, prices);
     if (cost === null) missingCostCount++;
     else total += cost;
   }
@@ -114,7 +135,7 @@ export function calendarCosts(events, prices) {
 }
 
 export function openingNote(event) {
-  if (!event.placeId) return '';
+  if (!event.placeId || event.sessionId) return '';
   const place = placeById[event.placeId];
   if (!place.hours?.length) return 'Chưa có giờ mở cửa.';
   const day = dayStart(event.start);
@@ -128,9 +149,10 @@ function conflicts(calendar, budget) {
   const issues = [];
   for (const [index, event] of events.entries()) {
     if (event.start < calendar.start || event.end > calendar.end) {
-      issues.push(issue('range', [event.id], `“${event.title}” nằm ngoài thời gian chuyến.`));
+      const bounds = event.sessionId ? ` Suất từ ${momentLabel(event.start)} đến ${momentLabel(event.end)}. Chuyến từ ${momentLabel(calendar.start)} đến ${momentLabel(calendar.end)}.` : '';
+      issues.push(issue('range', [event.id], `“${event.title}” nằm ngoài thời gian chuyến.${bounds}`));
     }
-    if (event.placeId && event.end - event.start < placeById[event.placeId].duration) {
+    if (event.placeId && !event.sessionId && event.end - event.start < placeById[event.placeId].duration) {
       issues.push(issue('duration', [event.id], `${placeById[event.placeId].name} cần khoảng ${placeById[event.placeId].duration} phút, khung này có ${event.end - event.start} phút.`));
     }
     const estimate = event.category === 'travel' && travelEstimate(event);
@@ -165,10 +187,24 @@ export function calendarBudget(version) {
 
 export function calendarCommand(calendar, command, budget) {
   const target = calendar.events.find((event) => event.id === command.id);
-  if (command.type !== 'create' && !target) return { error: 'Sự kiện này đã thay đổi hoặc đã bị xóa.' };
+  if (!['create', 'add-session'].includes(command.type) && !target) return { error: 'Sự kiện này đã thay đổi hoặc đã bị xóa.' };
+  if (target?.sessionId && command.type !== 'remove') {
+    return { error: 'Suất sự kiện có giờ và địa điểm cố định. Bạn có thể xóa lượt này rồi chọn suất khác trong Library.' };
+  }
   let next;
   switch (command.type) {
-    case 'create': next = { ...command.event, id: command.event?.id ?? newVisitId() }; break;
+    case 'create':
+      if (command.event?.category === 'session' || command.event?.sessionId) return { error: 'Chọn suất sự kiện trong Library.' };
+      next = { ...command.event, id: command.event?.id ?? newVisitId() };
+      break;
+    case 'add-session': {
+      const session = Object.hasOwn(eventSessionById, command.sessionId) && eventSessionById[command.sessionId];
+      if (!session) return { error: 'Không tìm thấy suất sự kiện trong Library.' };
+      if (calendar.events.some((event) => event.sessionId === session.id)) return { error: 'Suất này đã có trong lịch nháp.' };
+      next = { ...sessionTiming(session), id: newVisitId(), sessionId: session.id,
+        title: session.name, category: 'session', placeId: session.placeId, fixed: true };
+      break;
+    }
     case 'edit': next = { ...target, ...command.event, id: target.id }; break;
     case 'move': next = { ...target, start: command.start, end: command.start + target.end - target.start }; break;
     case 'resize': next = { ...target, end: command.end }; break;
@@ -177,7 +213,7 @@ export function calendarCommand(calendar, command, budget) {
     case 'remove': break;
     default: return { error: 'Thao tác này chưa được hỗ trợ.' };
   }
-  if (next && !validEvent(next)) return { error: 'Nhập tên và chọn thời điểm kết thúc sau bắt đầu.' };
+  if (next && (!validEvent(next) || (next.sessionId && command.type !== 'add-session'))) return { error: 'Nhập tên và chọn thời điểm kết thúc sau bắt đầu.' };
   if (target?.fixed && next?.id === target.id && next.start !== target.start) {
     return { error: 'Giờ bắt đầu của sự kiện cố định phải được giữ nguyên.' };
   }

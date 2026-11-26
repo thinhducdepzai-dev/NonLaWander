@@ -1,9 +1,10 @@
-import { placeById, libraryPlaces as places } from './data.js';
+import { eventSessionById, placeById, libraryPlaces as places } from './data.js';
+import { eventLibraryHref } from './library-events.js';
 import { icon } from './icons.js';
 import { filterLibraryPlaces, libraryGroups } from './library.js';
 import { placeCost } from './planner.js';
-import { calendarBudget, calendarCosts, calendarDate, calendarLegs, calendarOf, availableStart, dateOf, dayCount,
-  dayMinutes, dayOf, dayStart, eventCategories, minuteInDay, momentLabel, openingNote, placeCategory,
+import { calendarBudget, calendarCosts, calendarDate, calendarEventCost, calendarLegs, calendarOf, availableStart, dateOf, dayCount,
+  dayMinutes, dayOf, dayStart, eventCategories, minuteInDay, momentLabel, openingNote, placeCategory, sessionTimeLabel,
   timeOf, travelEstimate, validCalendarRange, wallMinute } from './calendar.js';
 import { setupCalendarChat } from './calendar-ai.js';
 import { setupCalendarPlanning } from './calendar-planning-view.js';
@@ -51,6 +52,7 @@ export function setupCalendarView({ trips, updated, tripHash, savedHref, announc
   let confirmed;
   let calendar;
   let pendingPlace;
+  let pendingSession;
   let lastResume;
   let visibleDay = 0;
   let panel;
@@ -62,7 +64,7 @@ export function setupCalendarView({ trips, updated, tripHash, savedHref, announc
   let drag;
   let skipClick = false;
 
-  for (const [value, label] of Object.entries(eventCategories)) categoryControl.add(new Option(label, value));
+  for (const [value, label] of Object.entries(eventCategories)) if (value !== 'session') categoryControl.add(new Option(label, value));
   const libraryGroup = $('calendar-library-group');
   for (const label of libraryGroups) libraryGroup.add(new Option(label, label));
   $('calendar-known-places').replaceChildren(...places.map((place) => new Option(place.name)));
@@ -85,7 +87,9 @@ export function setupCalendarView({ trips, updated, tripHash, savedHref, announc
   }
 
   function setupInput() {
-    return { startDate: '', startTime: '09:00', endDate: '', endTime: '18:00',
+    const session = pendingSession?.session;
+    return { startDate: session?.date ?? '', startTime: '09:00',
+      endDate: session?.endDate ?? session?.date ?? '', endTime: session?.ends ?? '18:00',
       ...(calendar ? rangeInput(calendar) : {}), ...trip.calendarSetup };
   }
 
@@ -95,6 +99,9 @@ export function setupCalendarView({ trips, updated, tripHash, savedHref, announc
     $('calendar-setup').hidden = !setup;
     $('calendar-mode').hidden = !mode;
     workspace.hidden = setup || mode;
+    const pending = $('calendar-pending-session');
+    pending.hidden = !pendingSession;
+    if (pendingSession) pending.textContent = `Suất đang thêm: ${pendingSession.session.name} · ${sessionTimeLabel(pendingSession.session)}.`;
     if (setup) {
       const values = setupInput();
       for (const key of rangeFields) rangeForm.elements[key].value = values[key] ?? '';
@@ -108,6 +115,22 @@ export function setupCalendarView({ trips, updated, tripHash, savedHref, announc
     }
     renderLayout(true);
     if (focus) $(panels[panel]?.focus ?? 'calendar-title').focus({ preventScroll: true });
+    if (!confirmed && pendingSession) {
+      const { session, href } = pendingSession;
+      pendingSession = null;
+      const params = new URLSearchParams(href.split('?')[1]);
+      params.delete('add');
+      const returnHref = `${href.split('?')[0]}?${params}`;
+      const result = apply({ type: 'add-session', sessionId: session.id });
+      $('trip-library-return').href = returnHref;
+      history.replaceState(history.state, '', tripHash(trip.id, false, returnHref));
+      if (result.trip) {
+        const status = $('calendar-session-status');
+        status.textContent = `Đã thêm “${session.name}” · ${timeRange(result.event.start, result.event.end)}. Có thể hoàn tác.`;
+        status.hidden = false;
+        status.focus();
+      } else feedback(`Chưa thêm “${session.name}” · ${sessionTimeLabel(session)}. ${errorText(result)}`);
+    }
     if (!confirmed && pendingPlace && lastResume !== `${trip.id}/${pendingPlace.id}`) {
       lastResume = `${trip.id}/${pendingPlace.id}`;
       offerPlace(pendingPlace.id);
@@ -142,7 +165,7 @@ export function setupCalendarView({ trips, updated, tripHash, savedHref, announc
     const mode = event.target.closest('[data-calendar-mode]')?.dataset.calendarMode;
     if (!mode) return;
     handleUpdate(trips.setCalendarMode(trip.id, mode));
-    panel = mode === 'ai' ? 'planning' : undefined;
+    panel = mode === 'ai' && !pendingSession ? 'planning' : undefined;
     mountStage(true);
   });
 
@@ -292,7 +315,7 @@ export function setupCalendarView({ trips, updated, tripHash, savedHref, announc
     open.append(title, timing);
     if (detail.textContent) open.append(detail);
     card.append(open);
-    if (!confirmed && event.end <= day + dayMinutes) {
+    if (!confirmed && !event.sessionId && event.end <= day + dayMinutes) {
       const resize = document.createElement('span');
       resize.className = 'calendar-resize-handle';
       resize.dataset.resize = 'true';
@@ -434,16 +457,23 @@ export function setupCalendarView({ trips, updated, tripHash, savedHref, announc
     formContext = { id };
     $('calendar-event-when').textContent = timeRange(event.start, event.end);
     const place = placeById[event.placeId];
-    const cost = place && placeCost(place.id, confirmed ? trip.confirmed.prices : undefined);
-    const location = place ? [place.name, cost === null ? 'Chưa có giá' : cost === 0 ? 'Miễn phí' : money(cost), openingNote(event)]
+    const cost = calendarEventCost(event, confirmed ? trip.confirmed.prices : undefined);
+    const location = event.sessionId
+      ? [place?.name ?? 'Chưa có nơi tổ chức', cost === null ? 'Chưa biết giá vé' : cost === 0 ? 'Miễn phí' : `${money(cost)}/người`]
+      : place ? [place.name, cost === null ? 'Chưa có giá' : cost === 0 ? 'Miễn phí' : money(cost), openingNote(event)]
       : [event.location, event.category === 'travel' ? [event.from, event.to].filter(Boolean).join(' → ') : 'Chưa gắn địa điểm'];
     $('calendar-event-place').textContent = [eventCategories[event.category], ...location].filter(Boolean).join(' · ');
+    const source = $('calendar-event-session');
+    source.hidden = !eventSessionById[event.sessionId];
+    if (!source.hidden) source.href = eventLibraryHref({ sessionId: event.sessionId, tripId: trip.id });
     $('calendar-event-actions').hidden = confirmed;
     for (const button of $('calendar-event-actions').querySelectorAll('[data-event-action]')) {
-      button.hidden = event.category === 'travel' && ['library', 'ai'].includes(button.dataset.eventAction);
+      const action = button.dataset.eventAction;
+      button.hidden = event.sessionId ? action !== 'remove' : event.category === 'travel' && ['library', 'ai'].includes(action);
     }
     openDialog(event.title, 'info');
   }
+  $('calendar-event-session').addEventListener('click', () => dialog.close());
 
   function eventFields() {
     const travel = categoryControl.value === 'travel';
@@ -595,6 +625,7 @@ export function setupCalendarView({ trips, updated, tripHash, savedHref, announc
   }
 
   function renderLibraryPanel() {
+    $('calendar-library-events').href = eventLibraryHref({ tripId: trip.id });
     const query = $('calendar-library-query').value;
     const results = filterLibraryPlaces(query, libraryGroup.value);
     const event = currentEvent(panelEvent);
@@ -621,6 +652,7 @@ export function setupCalendarView({ trips, updated, tripHash, savedHref, announc
     const value = trips.undoCalendar(trip.id, expected);
     if (!value) return false;
     handleUpdate(value);
+    $('calendar-session-status').hidden = true;
     feedback('');
     renderLayout(false);
     announce('Đã hoàn tác thao tác trên lịch của chuyến này.');
@@ -834,7 +866,7 @@ export function setupCalendarView({ trips, updated, tripHash, savedHref, announc
   });
 
   return {
-    render(value, readOnly, resumePlace, focus = false) {
+    render(value, readOnly, resume, focus = false) {
       if (!value) {
         if (dialog.open) dialog.close();
         if (wardDialog.open) wardDialog.close();
@@ -849,7 +881,9 @@ export function setupCalendarView({ trips, updated, tripHash, savedHref, announc
       trip = value;
       confirmed = readOnly;
       calendar = calendarOf(readOnly ? value.confirmed : value.draft);
-      pendingPlace = readOnly ? null : resumePlace;
+      pendingPlace = readOnly ? null : resume?.place;
+      pendingSession = !readOnly && resume?.session ? resume : null;
+      $('calendar-session-status').hidden = true;
       if (!pendingPlace) lastResume = undefined;
       if (changed) {
         visibleDay = 0;
@@ -858,7 +892,7 @@ export function setupCalendarView({ trips, updated, tripHash, savedHref, announc
         libraryGroup.value = '';
         const savedPanel = value.activeCalendarTool === undefined && value.conversation?.open
           ? value.conversation.tab === 'free' ? 'ai' : 'planning' : value.activeCalendarTool;
-        panel = !confirmed && (savedPanel === 'ai' || savedPanel === 'planning') ? savedPanel : undefined;
+        panel = !confirmed && !pendingSession && (savedPanel === 'ai' || savedPanel === 'planning') ? savedPanel : undefined;
         calendarScroll = undefined;
         panelEvent = null;
         feedback('');

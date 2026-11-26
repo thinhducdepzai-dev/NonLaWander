@@ -1,5 +1,5 @@
 import { areas, experienceById, periodById, placeById, transports, vibes } from './data.js';
-import { calendarBudget, calendarCommand, calendarOf, dateOf, isCalendar, validCalendarRange } from './calendar.js';
+import { calendarBudget, calendarCommand, calendarCostKey, calendarEventCost, calendarOf, dateOf, isCalendar, validCalendarRange } from './calendar.js';
 import { planCalendarDraft, planningForm, planningIssue, planningQuestions, updatePlanning } from './calendar-planning.js';
 import { appendVisit, dateIndex, draftBudget, moveVisit, newVisitId, placeCost, prepareRequest, previewReplacement } from './planner.js';
 import { normalizeWardIds } from './wards.js';
@@ -27,7 +27,7 @@ const savedIds = (value, check) => Array.isArray(value) ? [...new Set(value.filt
 const isList = (value, check) => Array.isArray(value) && value.every(check);
 const isKnown = (items, id) => items.some((item) => item.id === id);
 const isPriceSnapshot = (prices) => isRecord(prices) && Object.entries(prices).every(([id, cost]) =>
-  isPlace(id) && (cost === null || (Number.isFinite(cost) && cost >= 0)));
+  (isPlace(id) || /^session:[a-z0-9-]+$/.test(id)) && (cost === null || (Number.isFinite(cost) && cost >= 0)));
 
 function isPreferences(value) {
   return isList(value.vibes, (id) => isKnown(vibes, id)) &&
@@ -121,7 +121,10 @@ function tripPrices(plan) {
 export function hasDraftChanges(trip) {
   if (!trip.confirmed) return false;
   if (JSON.stringify(planSnapshot(trip.draft)) !== JSON.stringify(planSnapshot(trip.confirmed))) return true;
-  return Boolean(trip.confirmed.prices && Object.entries(trip.confirmed.prices).some(([id, cost]) => placeCost(id) !== cost));
+  if (!trip.confirmed.prices) return false;
+  if (trip.confirmed.calendar) return trip.confirmed.calendar.events.some((event) =>
+    calendarEventCost(event) !== calendarEventCost(event, trip.confirmed.prices));
+  return Object.entries(trip.confirmed.prices).some(([id, cost]) => placeCost(id) !== cost);
 }
 
 export function createTripStore(storage) {
@@ -440,8 +443,8 @@ export function createTripStore(storage) {
     const trip = get(id);
     if (!trip?.draft.plan && !trip?.draft.calendar?.mode) return null;
     const confirmed = structuredClone(planSnapshot(trip.draft));
-    confirmed.prices = confirmed.calendar ? Object.fromEntries(confirmed.calendar.events.filter(({ placeId }) => placeId)
-      .map(({ placeId }) => [placeId, placeCost(placeId)])) : tripPrices(confirmed.plan);
+    confirmed.prices = confirmed.calendar ? Object.fromEntries(confirmed.calendar.events.filter(calendarCostKey)
+      .map((event) => [calendarCostKey(event), calendarEventCost(event)])) : tripPrices(confirmed.plan);
     return write({ ...trip, confirmed });
   }
 

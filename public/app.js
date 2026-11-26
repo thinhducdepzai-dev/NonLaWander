@@ -251,7 +251,7 @@ function renderRoute(focus = false, previousHash = '') {
         $('trip-library-return').hidden = false;
         $('trip-library-context').hidden = false;
       }
-      hourlyCalendar.render(activeTrip, viewingConfirmed, libraryReturn?.place, focus);
+      hourlyCalendar.render(activeTrip, viewingConfirmed, libraryReturn, focus);
     }
   } else if (showProjects) {
     if (hash !== '#trips') history.replaceState(null, '', '#trips');
@@ -262,7 +262,7 @@ function renderRoute(focus = false, previousHash = '') {
       (previous || $('trip-list-title')).focus();
     }
   } else if (showLibrary) {
-    renderLibrary(hash, focus, previousHash, renderLibraryActions, savedItemsHash);
+    renderLibrary(hash, focus, previousHash, renderLibraryActions, savedItemsHash, trips.get);
   } else {
     document.title = 'Home · NonLa Wander';
     renderHome();

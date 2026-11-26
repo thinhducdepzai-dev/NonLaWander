@@ -47,6 +47,14 @@ export const wardLibraryPlaces = [
 
 export const libraryPlaces = [...places, ...wardLibraryPlaces];
 export const placeById = Object.fromEntries(libraryPlaces.map((place) => [place.id, place]));
+// Fictional times and tickets for testing. Venue names refer to existing Library entries.
+export const eventSessions = [
+  { id: 'hoa-nhac-20261218-1730', name: 'Hòa nhạc cuối tuần', date: '2026-12-18', starts: '17:30', ends: '19:00', placeId: 'nha-hat-lon', price: 120_000 },
+  { id: 'hoa-nhac-20261218-1930', name: 'Hòa nhạc cuối tuần', date: '2026-12-18', starts: '19:30', ends: '21:00', placeId: 'nha-hat-lon', price: 180_000 },
+  { id: 'ky-uc-pho-20261219-1600', name: 'Ký ức phố cổ', date: '2026-12-19', starts: '16:00', ends: '17:00', placeId: 'ma-may', price: 0 },
+  { id: 'dem-nghe-thuat-20261219-2330', name: 'Đêm nghệ thuật', date: '2026-12-19', starts: '23:30', endDate: '2026-12-20', ends: '00:30', placeId: 'nha-hat-lon' },
+];
+export const eventSessionById = Object.fromEntries(eventSessions.map((session) => [session.id, session]));
 export const periodById = Object.fromEntries(periods.map((period) => [period.id, period]));
 
 // Liên kết demo dựa trên tên, nhóm hoặc vibe đã có của địa điểm.

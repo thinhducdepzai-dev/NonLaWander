@@ -21,6 +21,14 @@ Home, My Projects và Library dùng thanh điều hướng chung trên đầu tr
 
 Lưu một trải nghiệm ghi nhận ý muốn thử. Lưu một địa điểm ghi nhận nơi cụ thể. Hai danh sách lưu riêng và có thể giữ mục khi chuyến chưa có thời gian. Khách chọn một địa điểm cụ thể trước khi đưa trải nghiệm vào lịch. Khi chọn Thêm vào lịch, giữ địa điểm và chuyến đã chọn qua các bước còn thiếu. Tạo một lượt mới hoặc gắn địa điểm vào sự kiện hiện có tùy điểm bắt đầu của thao tác.
 
+### Sự kiện theo ngày
+
+Library có mục Sự kiện. Từ điều hướng chính, mặc định lọc từ hôm nay theo giờ Hà Nội đến hết ngày thứ 30 tiếp theo. Từ trong chuyến, mặc định dùng các ngày có trong khung chuyến. Một suất xuất hiện nếu giao với khoảng ngày đang xem, kể cả khi kéo qua nửa đêm. Quay lại từ chi tiết giữ khoảng ngày. Mỗi thẻ hiện tên, ngày, giờ, nơi tổ chức, cộng với giá vé mỗi người, miễn phí hoặc chưa biết giá.
+
+Địa điểm và suất có ID riêng. Hai suất cùng tên có thể cùng địa điểm nhưng khác giờ và giá. Khi thêm vào nháp, tạo một lượt có ID riêng và tham chiếu ID suất. Chi tiết có lối về địa điểm nếu đã liên kết. Cho chọn hoặc tạo chuyến từ Library chung. Khi vào từ chuyến, giữ chuyến đã mở. Suất đang chọn được giữ qua bước thiết lập và tải lại.
+
+Dữ liệu minh họa mang nhãn Sự kiện demo. Bộ II.6 gồm Hòa nhạc cuối tuần tại Nhà hát Lớn ngày 18/12/2026 lúc 17:30–19:00 và 19:30–21:00, Ký ức phố cổ miễn phí tại Nhà cổ 87 Mã Mây ngày 19/12 lúc 16:00–17:00 và Đêm nghệ thuật chưa biết giá vé từ 23:30 ngày 19/12 đến 00:30 ngày 20/12. Các giờ, chương trình và vé của bộ này là dữ liệu minh họa. Chuyến mẫu chạy từ 16:00 ngày 18/12 đến 02:00 ngày 20/12/2026, theo giờ Hà Nội.
+
 ### Phường hành chính và bản đồ
 
 II.5 mở ba phường trung tâm: Hoàn Kiếm (00070), Cửa Nam (00082) và Ba Đình (00004). Tên và mã theo [Nghị quyết 1656/NQ-UBTVQH15](https://congbao.chinhphu.vn/tai-ve-van-ban-so-1656-nq-ubtvqh15-45110-56820?format=pdf) và [Quyết định 19/2025/QĐ-TTg](https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2025/6/45430/57438-1-2025919-92019-2025-qd-ttg.pdf), áp dụng từ 01/07/2025. Hồ Gươm và Phố cổ tiếp tục là nhãn khu vực du lịch của Library và dữ liệu chuyến cũ. Không tự chuyển nhãn du lịch thành phường.
@@ -37,6 +45,8 @@ Hai công cụ chạy bằng dữ liệu demo trong trình duyệt, không gọi
 
 Hội thoại tự do lưu theo từng chuyến. Câu hỏi tư vấn, kể cả câu có chữ “thêm”, chỉ nhận câu trả lời. Lệnh rõ về một đối tượng có thể cập nhật nháp sau khi bộ tính lịch xác nhận hợp lệ. Hỏi lại khi thiếu tên nơi, ngày, giờ hoặc có nhiều đối tượng phù hợp. Khi xung đột, nêu lý do và giữ nháp. Khi ghi thành công, nêu thay đổi và cho hoàn tác. Đề xuất dùng để cân nhắc giữ cách xem trước và kiểm tra lại lịch trước khi ghi.
 
+Với câu hỏi về sự kiện, chat liệt kê các suất giao với thời gian chuyến và liên kết chi tiết. Lệnh thêm đủ thông tin dùng cùng thao tác kiểm tra và lưu như Library. Khi còn nhiều suất phù hợp, hỏi khách chọn giờ. Câu hỏi tư vấn giữ nguyên nháp.
+
 ### Lập lịch cùng AI
 
 Dùng thời gian chuyến đã chọn. Mỗi bước hiển thị một câu hỏi, tiến độ và giá trị đã có để sửa. Vibe có thể chọn nhiều mục. Câu hỏi phường dùng chung bộ chọn với mục Phường ưu tiên trong lịch nháp. Với câu mở, nhập qua + Khác và giữ các lựa chọn đã chọn. Bấm Xác nhận để đi tiếp, Quay lại để sửa, hoặc Bỏ qua ở bước tùy chọn. Tiến độ và câu trả lời lưu riêng theo chuyến, kể cả khi chuyển công cụ hoặc tải lại.
@@ -46,6 +56,8 @@ Trong bộ chọn, mở tên hoặc vùng trên bản đồ để xem chi tiết
 Chat và bộ lập lịch đẩy ứng viên thuộc bất kỳ phường đã chọn lên trước trong nhóm phù hợp với yêu cầu. Nếu thiếu điểm phù hợp hoặc không thể xếp theo khung giờ và điều kiện lịch, có thể dùng điểm ngoài các phường ưu tiên và nêu lý do. Giờ mở cửa thường chỉ để tham khảo.
 
 Chỉ nút cuối Tạo lịch nháp hoặc Cập nhật lịch nháp bắt đầu xếp. Đọc nháp mới nhất và kiểm tra bằng bộ tính lịch thủ công trước khi ghi. Giữ sự kiện tự tạo, ưu tiên gắn địa điểm phù hợp vào sự kiện chưa có nơi, giữ ID và giờ nếu vừa. Báo sự kiện mới, địa điểm đã gắn và nhu cầu chưa xếp được. Xác nhận lặp lại cho cùng lượt chỉ trả kết quả đã có. Có thể hoàn tác lần lập lịch vừa áp dụng. Bản chốt chỉ thay khi khách chốt lại.
+
+Khi khách chọn Xem sự kiện hoặc nêu một suất phù hợp ở câu hỏi món và hoạt động, bộ demo xét các suất theo phường ưu tiên, khung chuyến và xung đột. Thiếu suất phù hợp thì ghi rõ lý do trong kết quả.
 
 ## 5. Lịch theo giờ
 
@@ -62,6 +74,8 @@ Chi phí mỗi người và cả nhóm dùng cùng chi phí lượt ghé. Ghi s�
 Menu mỗi sự kiện có Sửa, Đổi ngày/giờ, Nhân bản và Xóa. Desktop cho kéo thẻ sang ngày/giờ khác, kéo mép để thay thời lượng và xem trước giờ khi kéo. Bàn phím và cảm ứng dùng biểu mẫu tương đương. Nhân bản sinh ID mới. Hoàn tác tác động vào chuyến hiện hành.
 
 Thao tác tay và demo dùng cùng bộ lệnh tạo, sửa, gắn hoặc thay địa điểm, dời, đổi thời lượng, nhân bản và xóa. Kiểm tra sự kiện trùng nhau, phạm vi chuyến, ngân sách, thời lượng ghé, chặng đi và mốc cố định trước khi ghi. Nếu từ chối, nêu xung đột và giữ dữ liệu cũ. Khi áp dụng đề xuất, kiểm tra lại nháp mới nhất. Thay đổi dữ liệu liên quan yêu cầu duyệt lại. Đổi tên chuyến không làm mất hiệu lực của đề xuất.
+
+Suất từ Library giữ nguyên giờ bắt đầu, kết thúc và nơi tổ chức. Chỉ thêm khi toàn bộ thời lượng nằm trong khung chuyến và qua kiểm tra trùng lịch, chặng đi bộ và ngân sách. Chặn kéo, sửa hoặc nhân bản suất. Cùng một suất chỉ được thêm một lần trong mỗi nháp. Có thể xóa hoặc hoàn tác. Chi phí vé mỗi người tính theo ID suất để hai suất tại cùng nơi có giá riêng. Vé chưa biết đi vào số lượt thiếu giá. Khi chốt, lưu giá vé và số người cùng bản chốt.
 
 ## 7. Lưu và mở lại
 
@@ -87,6 +101,8 @@ Ghi số lượt, token vào/ra và chi phí ước tính theo tác vụ gợi �
 | Đính kèm cùng thẻ với ba câu lệnh | Hỏi chỉ trả lời. Cân nhắc cho xem tác động. Lệnh thêm rõ ràng cập nhật đúng nháp nếu hợp lệ. |
 | Sửa lịch trong lúc AI đang xử lý | Đề xuất cũ không đưa điểm vừa bỏ trở lại. Đổi tên đơn thuần vẫn cho áp dụng. Chuyến khác không bị tác động. |
 | Thiếu giá, thiếu giờ hoặc API lỗi | Giờ mở cửa là tham khảo. Tổng tiền thể hiện phần thiếu. Khách tiếp tục tự xếp. |
+| Thêm suất theo ngày | Thêm đúng suất 19:30–21:00, tải lại giữ ID, giờ và giá. Bấm lại không tạo trùng. Từ chối nếu chuyến kết thúc lúc 20:00 hoặc có hẹn lúc 20:15. Hoàn tác giữ bản chốt và chuyến khác. |
+| Suất qua nửa đêm | Lọc ngày 20/12 vẫn thấy suất bắt đầu 23:30 ngày 19/12. Giá chưa biết được đếm riêng với vé miễn phí. |
 | Chốt rồi chỉnh tiếp | Mở lại thấy bản chốt và nháp đúng trạng thái. Chỉ xác nhận cập nhật mới thay lịch chốt. |
 | Nhiều yêu cầu gần trần 45 USD | Tổng đã chi và đã giữ chỗ không vượt trần ứng dụng. Chức năng thủ công vẫn dùng được. |
 

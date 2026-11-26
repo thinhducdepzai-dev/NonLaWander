@@ -101,9 +101,24 @@
       <a id="library-trip-back" class="back-link library-trip-back" hidden>Quay về địa điểm đã lưu</a>
       <header class="library-heading">
         <h1 id="library-title" tabindex="-1">Thư viện</h1>
-        <p>Khám phá món ăn, hoạt động và điểm ghé quanh Hồ Gươm, Phố cổ.</p>
-        <p class="library-demo"><span data-icon="info"></span>Dữ liệu demo. Chi phí và giờ mở cửa chỉ để tham khảo.</p>
+        <p id="library-intro">Khám phá món ăn, hoạt động và điểm ghé quanh Hồ Gươm, Phố cổ.</p>
+        <p id="library-list-demo" class="library-demo"><span data-icon="info"></span>Dữ liệu demo. Chi phí và giờ mở cửa chỉ để tham khảo.</p>
       </header>
+
+      <nav class="library-modes" aria-label="Nội dung thư viện">
+        <a id="library-places-tab" class="text-button" href="#library">Địa điểm và trải nghiệm</a>
+        <a id="library-events-tab" class="text-button" href="#library/events">Sự kiện</a>
+      </nav>
+      <section id="library-events" aria-label="Sự kiện theo ngày" hidden>
+        <form id="library-event-filters" class="library-filters library-event-filters" novalidate>
+          <div><label for="library-event-from">Từ ngày</label><input id="library-event-from" type="date" required></div>
+          <div><label for="library-event-to">Đến hết ngày</label><input id="library-event-to" type="date" required></div>
+          <button class="text-button" type="submit">Lọc theo ngày</button>
+          <p id="library-event-error" class="field-error" role="alert" hidden></p>
+        </form>
+        <p id="library-event-count" class="helper library-event-count" role="status"></p>
+        <ul id="library-event-results" class="library-places event-list" role="list"></ul>
+      </section>
 
       <form id="library-filters" class="library-filters" role="search" aria-label="Tìm trong thư viện">
         <div class="library-search">
@@ -160,8 +175,13 @@
         <p id="library-detail-description"></p>
         <p id="library-detail-demo" class="library-demo"><span data-icon="info"></span>Dữ liệu demo. Chi phí và giờ mở cửa chỉ để tham khảo.</p>
       </header>
+      <dl id="library-event-detail" class="event-detail-facts" hidden>
+        <div><dt>Giờ Hà Nội</dt><dd id="library-event-time"></dd></div>
+        <div><dt>Nơi tổ chức</dt><dd id="library-event-venue"></dd></div>
+        <div><dt>Vé</dt><dd id="library-event-price"></dd></div>
+      </dl>
       <div class="library-detail-actions">
-        <button type="button" id="library-add-toggle" class="primary-button" aria-controls="library-add" aria-expanded="false" hidden><span data-icon="plus"></span>Thêm vào lịch</button>
+        <button type="button" id="library-add-toggle" class="primary-button" aria-controls="library-add" aria-expanded="false" hidden><span data-icon="plus"></span><span id="library-add-label">Thêm vào lịch</span></button>
         <button type="button" id="library-save-toggle" class="text-button" aria-controls="library-save" aria-expanded="false" hidden><span data-icon="bookmark"></span><span id="library-save-label">Lưu để xếp sau</span></button>
       </div>
       <div id="library-saved-status" class="library-saved-status" role="status" aria-atomic="true" hidden>
@@ -293,6 +313,7 @@
     <section id="hourly-workspace" hidden aria-label="Lập lịch theo giờ">
       <section id="calendar-setup" class="calendar-onboarding" hidden aria-labelledby="calendar-setup-title">
         <h1 id="calendar-setup-title" tabindex="-1">Chuyến đi của bạn diễn ra khi nào?</h1>
+        <p id="calendar-pending-session" class="helper" hidden></p>
         <p class="helper">Giờ Hà Nội (UTC+7)</p>
         <form id="calendar-range-form" novalidate>
           <div class="calendar-range-fields">
@@ -363,6 +384,7 @@
           </div>
           <div id="calendar-day-picker" class="calendar-day-picker" role="group" aria-label="Chọn ngày"></div>
           <p id="calendar-feedback" class="error-box" role="alert" tabindex="-1" hidden></p>
+          <p id="calendar-session-status" class="calendar-session-status" role="status" tabindex="-1" hidden></p>
           <p id="calendar-drag-preview" class="calendar-drag-preview" role="status" hidden></p>
           <div id="calendar-scroll" class="calendar-scroll" tabindex="0" role="region" aria-label="Lịch theo giờ">
             <div id="calendar-grid"></div>
@@ -378,6 +400,7 @@
             <button type="button" class="text-button" data-calendar-close-panel>Quay về lịch</button>
           </div>
           <p id="calendar-library-context" class="helper"></p>
+          <a id="calendar-library-events" class="text-button">Sự kiện theo ngày</a>
           <a id="calendar-saved-link" class="back-link">Mở mục đã lưu</a>
           <div class="field">
             <label for="calendar-library-query">Tìm địa điểm</label>
@@ -500,6 +523,7 @@
         <div id="calendar-event-info" hidden>
           <p id="calendar-event-when"></p>
           <p id="calendar-event-place" class="helper"></p>
+          <a id="calendar-event-session" class="back-link" hidden>Mở suất trong Library</a>
           <div id="calendar-event-actions" class="calendar-event-menu" aria-label="Thao tác sự kiện">
             <button class="text-button" data-event-action="edit" type="button">Sửa</button>
             <button class="text-button" data-event-action="move" type="button">Đổi ngày/giờ</button>

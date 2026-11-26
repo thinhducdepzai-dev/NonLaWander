@@ -1,8 +1,9 @@
-import { calendarOf } from './calendar.js';
-import { areas, experienceById, experiencePlaces, experiences, placeById, libraryPlaces as places } from './data.js';
+import { calendarOf, sessionTimeLabel } from './calendar.js';
+import { areas, eventSessionById, experienceById, experiencePlaces, experiences, placeById, libraryPlaces as places } from './data.js';
 import { icon } from './icons.js';
 import { hasKnownCost } from './planner.js';
 import { placeWard } from './wards.js';
+import { eventDateFilters, eventLibraryHref, libraryEventRange, sessionsInRange } from './library-events.js';
 
 const $ = (id) => document.getElementById(id);
 const query = $('library-query');
@@ -14,6 +15,9 @@ const currency = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: '
 const dayLabels = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ nhật'];
 let libraryTripId = null;
 let libraryExperienceId = null;
+const eventFrom = $('library-event-from');
+const eventTo = $('library-event-to');
+const eventsPath = '#library/events';
 
 for (const label of libraryGroups) category.add(new Option(label, label));
 
@@ -70,8 +74,15 @@ function findExperienceId(path) {
   return path.match(/^#library\/experience\/([a-z0-9-]+)$/)?.[1];
 }
 
+function findSessionId(path) {
+  return path.match(/^#library\/events\/([a-z0-9-]+)$/)?.[1];
+}
+
 export function getLibraryReturn(href) {
-  const [path] = (href ?? '').split('?', 1);
+  const [path, search] = (href ?? '').split('?', 2);
+  const idSession = findSessionId(path);
+  const session = Object.hasOwn(eventSessionById, idSession) && eventSessionById[idSession];
+  if (path === eventsPath || session) return { href, session: new URLSearchParams(search).get('add') === '1' ? session : undefined };
   if (path === '#library') return { href };
   const id = findPlaceId(path);
   if (id && Object.hasOwn(placeById, id)) {
@@ -120,6 +131,77 @@ function renderResults() {
   $('library-place-results').hidden = !matching.length;
   $('library-empty').hidden = !!(matching.length || ideas.length);
   $('library-reset').disabled = !query.value && !group;
+}
+
+function ticketPrice(session) {
+  return session.price === 0 ? 'Miễn phí' : session.price == null ? 'Chưa biết giá vé' : `${currency.format(session.price)}/người`;
+}
+
+function renderEventResults(from, to) {
+  const listing = sessionsInRange(libraryEventRange(from, to));
+  const formatDate = (date) => date.split('-').reverse().join('/');
+  const range = from === to ? formatDate(from) : `${formatDate(from)} – ${formatDate(to)}`;
+  $('library-event-count').textContent = listing.length
+    ? `${listing.length} suất · ${range} · Giờ Hà Nội`
+    : `Không có suất ${from === to ? 'ngày' : 'từ'} ${range} theo giờ Hà Nội. Hãy đổi khoảng ngày.`;
+  $('library-event-results').replaceChildren(...listing.map((session) => {
+    const href = eventLibraryHref({ sessionId: session.id, tripId: libraryTripId, from, to });
+    const row = libraryCard({ ...session, icon: 'calendar' }, href, placeById[session.placeId]?.name ?? 'Chưa có nơi tổ chức', ticketPrice(session));
+    const link = row.querySelector('a');
+    link.dataset.sessionId = session.id;
+    const time = document.createElement('p');
+    time.className = 'event-card-time';
+    time.textContent = sessionTimeLabel(session);
+    const demo = document.createElement('small');
+    demo.className = 'helper';
+    demo.textContent = 'Sự kiện demo';
+    const info = row.querySelector('.library-place-info');
+    info.prepend(time);
+    info.append(demo);
+    return row;
+  }));
+}
+
+$('library-event-filters').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const { value: from } = eventFrom;
+  const { value: to } = eventTo;
+  const error = $('library-event-error');
+  const invalid = !libraryEventRange(from, to);
+  error.hidden = !invalid;
+  error.textContent = invalid ? 'Chọn đủ hai ngày. Ngày kết thúc phải bằng hoặc sau ngày bắt đầu.' : '';
+  if (invalid) {
+    (!from ? eventFrom : eventTo).focus();
+    return;
+  }
+  history.replaceState(history.state, '', eventLibraryHref({ tripId: libraryTripId, from, to }));
+  renderEventResults(from, to);
+});
+
+function renderSession(session, params) {
+  $('library-detail-title').textContent = session?.name ?? 'Không tìm thấy suất sự kiện';
+  $('library-detail-category').textContent = 'Sự kiện demo';
+  $('library-detail-category').hidden = !session;
+  $('library-detail-description').textContent = session ? '' : 'Quay về danh sách sự kiện để chọn suất khác.';
+  $('library-detail-demo').hidden = true;
+  $('library-detail-content').hidden = true;
+  $('library-experience-places').hidden = true;
+  $('library-event-detail').hidden = !session;
+  $('library-back').href = eventLibraryHref({ tripId: libraryTripId, from: params.get('from'), to: params.get('to') });
+  $('library-back-label').textContent = 'Quay về sự kiện';
+  if (!session) return;
+  $('library-event-time').textContent = sessionTimeLabel(session);
+  $('library-event-price').textContent = ticketPrice(session);
+  const venue = placeById[session.placeId];
+  const holder = $('library-event-venue');
+  if (!venue) holder.textContent = 'Chưa có nơi tổ chức';
+  else {
+    const link = document.createElement('a');
+    link.className = 'back-link';
+    link.href = libraryPath(venue.id, new URLSearchParams());
+    link.textContent = venue.name;
+    holder.replaceChildren(link);
+  }
 }
 
 function updateFilters() {
@@ -227,6 +309,8 @@ export function setupLibraryActions({ trips, createTrip, tripHash, savedItemsHas
   const saveError = $('library-save-error');
   let place;
   let experience;
+  let session;
+  let sessionParams;
 
   function availableTrips() {
     if (!libraryTripId) return trips.list();
@@ -235,6 +319,7 @@ export function setupLibraryActions({ trips, createTrip, tripHash, savedItemsHas
   }
 
   function resumeHref(tripId) {
+    if (session) return eventLibraryHref({ sessionId: session.id, tripId, from: sessionParams.get('from'), to: sessionParams.get('to'), add: true });
     return libraryHref(place.id, { add: '1', trip: tripId });
   }
 
@@ -243,13 +328,14 @@ export function setupLibraryActions({ trips, createTrip, tripHash, savedItemsHas
     const trip = id ? trips.get(id) : null;
     configure.hidden = !trip;
     if (!trip) {
-      guidance.textContent = libraryTripId ? 'Chuyến này không còn khả dụng.' : 'Tạo chuyến đi để chọn thời gian trước khi thêm địa điểm này.';
+      guidance.textContent = libraryTripId ? 'Chuyến này không còn khả dụng.' : 'Tạo chuyến đi để chọn thời gian trước khi thêm.';
       return;
     }
     const ready = !!calendarOf(trip.draft)?.mode;
     configure.href = tripHash(id, false, resumeHref(id));
-    configure.textContent = ready ? 'Chọn giờ trong lịch' : 'Thiết lập thời gian chuyến';
-    guidance.textContent = ready ? 'Chọn ngày và giờ trong lịch nháp của chuyến này.' : 'Địa điểm sẽ được giữ để bạn tiếp tục thêm vào lịch sau khi thiết lập chuyến.';
+    configure.textContent = ready ? session ? 'Thêm đúng suất vào nháp' : 'Chọn giờ trong lịch' : 'Thiết lập thời gian chuyến';
+    guidance.textContent = ready ? session ? sessionTimeLabel(session) : 'Chọn ngày và giờ trong lịch nháp của chuyến này.'
+      : session ? 'Suất này sẽ được giữ trong lúc bạn thiết lập chuyến.' : 'Địa điểm sẽ được giữ để bạn tiếp tục thêm vào lịch sau khi thiết lập chuyến.';
   }
 
   function renderTrips(selectedTrip) {
@@ -366,12 +452,15 @@ export function setupLibraryActions({ trips, createTrip, tripHash, savedItemsHas
     link?.focus();
   });
 
-  return (selectedPlace, params, selectedExperience) => {
-    const changedItem = place?.id !== selectedPlace?.id || experience?.id !== selectedExperience?.id;
+  return (selectedPlace, params, selectedExperience, selectedSession) => {
+    const changedItem = place?.id !== selectedPlace?.id || experience?.id !== selectedExperience?.id || session?.id !== selectedSession?.id;
     place = selectedPlace;
     experience = selectedExperience;
+    session = selectedSession;
+    sessionParams = params;
     const savedInOrigin = !!experience && !!libraryTripId && trips.get(libraryTripId)?.savedExperienceIds.includes(experience.id);
-    toggle.hidden = !place;
+    toggle.hidden = !(place || session);
+    $('library-add-label').textContent = session ? 'Thêm vào lịch nháp' : 'Thêm vào lịch';
     saveToggle.hidden = !(place || experience) || savedInOrigin;
     saveToggle.classList.toggle('primary-button', !!experience);
     saveToggle.classList.toggle('text-button', !experience);
@@ -380,11 +469,11 @@ export function setupLibraryActions({ trips, createTrip, tripHash, savedItemsHas
     saveSubmit.textContent = experience ? 'Lưu trải nghiệm' : 'Lưu địa điểm';
     setSaveOpen(false);
     renderSavedStatus();
-    if (libraryTripId && !libraryExperienceId) {
+    if (libraryTripId && !libraryExperienceId && (place || experience)) {
       $('library-back').href = savedItemsHash(libraryTripId, !!experience);
       $('library-back-label').textContent = experience ? 'Quay về trải nghiệm đã lưu' : 'Quay về địa điểm đã lưu';
     }
-    const open = !!place && params.get('add') === '1';
+    const open = !!(place || session) && params.get('add') === '1';
     setOpen(open);
     if (changedItem) {
       tripSelect.replaceChildren();
@@ -396,7 +485,7 @@ export function setupLibraryActions({ trips, createTrip, tripHash, savedItemsHas
   };
 }
 
-export function renderLibrary(hash, focus, previousHash, renderActions, savedItemsHash) {
+export function renderLibrary(hash, focus, previousHash, renderActions, savedItemsHash, getTrip) {
   const [path, search] = hash.split('?', 2);
   const params = new URLSearchParams(search);
   const fromTrip = params.get('fromTrip');
@@ -405,22 +494,50 @@ export function renderLibrary(hash, focus, previousHash, renderActions, savedIte
   libraryExperienceId = findPlaceId(path) && Object.hasOwn(experienceById, origin) ? origin : null;
   query.value = params.get('q') ?? '';
   category.value = params.get('group') ?? '';
-  const isList = path === '#library';
+  const showingEvents = path === eventsPath;
+  const isList = path === '#library' || showingEvents;
+  const sessionId = findSessionId(path);
   const experienceId = findExperienceId(path);
   $('library-view').hidden = !isList;
   $('library-detail').hidden = isList;
 
   let addFocus;
   if (isList) {
+    $('library-intro').hidden = showingEvents;
+    $('library-list-demo').hidden = showingEvents;
+    $('library-events-tab').href = eventLibraryHref({ tripId: libraryTripId });
+    $('library-events-tab').setAttribute('aria-current', showingEvents ? 'page' : 'false');
+    $('library-places-tab').setAttribute('aria-current', showingEvents ? 'false' : 'page');
+    $('library-places-tab').href = libraryHref();
+    $('library-events').hidden = !showingEvents;
+    filters.hidden = showingEvents;
     const back = $('library-trip-back');
     back.hidden = !libraryTripId;
-    if (libraryTripId) back.href = savedItemsHash(libraryTripId);
-    renderResults();
+    if (libraryTripId) {
+      back.href = showingEvents ? `#trip/${libraryTripId}` : savedItemsHash(libraryTripId);
+      back.textContent = showingEvents ? 'Quay về lịch chuyến đi' : 'Quay về địa điểm đã lưu';
+    }
+    if (showingEvents) {
+      for (const id of ['library-empty', 'library-experience-results', 'library-place-results']) $(id).hidden = true;
+      const trip = libraryTripId && getTrip(libraryTripId);
+      const dates = libraryEventRange(params.get('from'), params.get('to'))
+        ? { from: params.get('from'), to: params.get('to') } : eventDateFilters(trip ? calendarOf(trip.draft) : null);
+      eventFrom.value = dates.from;
+      eventTo.value = dates.to;
+      $('library-event-error').hidden = true;
+      renderEventResults(dates.from, dates.to);
+    } else renderResults();
+  } else if (sessionId) {
+    const session = Object.hasOwn(eventSessionById, sessionId) ? eventSessionById[sessionId] : null;
+    renderSession(session, params);
+    addFocus = renderActions(null, params, null, session);
   } else if (experienceId) {
+    $('library-event-detail').hidden = true;
     const experience = Object.hasOwn(experienceById, experienceId) ? experienceById[experienceId] : null;
     renderExperience(experience);
     renderActions(null, params, experience);
   } else {
+    $('library-event-detail').hidden = true;
     const id = findPlaceId(path);
     const place = Object.hasOwn(placeById, id) ? placeById[id] : null;
     renderDetail(place);
@@ -434,7 +551,9 @@ export function renderLibrary(hash, focus, previousHash, renderActions, savedIte
   const previousPath = previousHash.split('?', 1)[0];
   const previousPlace = findPlaceId(previousPath);
   const previousExperience = findExperienceId(previousPath);
-  const previousCard = isList && previousExperience ? $('library-experiences').querySelector(`[data-experience-id="${previousExperience}"]`)
+  const previousSession = findSessionId(previousPath);
+  const previousCard = showingEvents && previousSession ? $('library-event-results').querySelector(`[data-session-id="${previousSession}"]`)
+    : isList && previousExperience ? $('library-experiences').querySelector(`[data-experience-id="${previousExperience}"]`)
     : previousPlace && (isList ? results : experienceId ? $('library-related-places') : null)?.querySelector(`[data-place-id="${previousPlace}"]`);
   if (addFocus) addFocus.focus();
   else if (previousCard) previousCard.focus();

@@ -1,11 +1,14 @@
-import { areas, experienceById, experiences, placeById, libraryPlaces as places, transports, vibes } from './data.js';
+import { areas, eventSessions, experienceById, experiences, placeById, libraryPlaces as places, transports, vibes } from './data.js';
 import { calendarBudget, calendarCommand, calendarCosts, dayMinutes, dayStart, momentLabel, openingNote, placeCategory } from './calendar.js';
+import { sessionsInRange } from './library-events.js';
 import { normalizeWardIds, wardPreference } from './wards.js';
 
 export const planningQuestions = [
   { key: 'people', title: 'Chuyến đi có bao nhiêu người?', label: 'Số người tham gia', type: 'number', required: true },
   { key: 'vibe', title: 'Bạn thích chuyến đi có vibe nào?', type: 'multiple', options: vibes, custom: 'Vibe khác' },
-  { key: 'idea', title: 'Bạn muốn thử món ăn hay hoạt động nào?', type: 'multiple', options: experiences.map(({ id, name }) => ({ id, label: name })), custom: 'Món ăn hoặc hoạt động khác' },
+  { key: 'idea', title: 'Bạn muốn thử món ăn hay hoạt động nào?', type: 'multiple',
+    options: [...experiences.map(({ id, name }) => ({ id, label: name })), { id: 'event-session', label: 'Xem sự kiện' }],
+    custom: 'Món, hoạt động hoặc tên sự kiện' },
   { key: 'area', title: 'Bạn muốn ưu tiên phường nào?', type: 'wards', options: areas },
   { key: 'budget', title: 'Ngân sách mỗi người là bao nhiêu?', label: 'Ngân sách (₫/người)', type: 'number' },
   { key: 'transport', title: 'Bạn muốn di chuyển bằng gì?', type: 'single', options: transports, custom: 'Phương tiện khác' },
@@ -86,6 +89,7 @@ function plansFor(answers, calendar, notes, geography) {
   if (exactIdea && !desiredIdeas.ids.includes(exactIdea.id)) desiredIdeas.ids.push(exactIdea.id);
   else if (desiredIdeas.custom && !exactIdea) notes.push(`Library demo chưa có dữ liệu cho “${desiredIdeas.custom}”.`);
   for (const id of desiredIdeas.ids) {
+    if (id === 'event-session') continue;
     const idea = experienceById[id];
     priorities.push({ label: idea.name, candidates: idea.placeIds.map((placeId) => placeById[placeId]).filter(Boolean) });
   }
@@ -162,8 +166,36 @@ export function planCalendarDraft(calendar, answers) {
     return { calendar, added, attached, notes };
   }
   const geography = wardPreference(answers.area.wardIds);
-  const priorities = plansFor(answers, calendar, notes, geography);
   let next = calendar;
+  const requestedIdea = choice(answers, 'idea');
+  const custom = fold(requestedIdea.custom);
+  const named = custom && eventSessions.find(({ name }) => custom.includes(fold(name)));
+  const wantsSession = requestedIdea.ids.includes('event-session') || named ||
+    /\b(su kien|suat dien|buoi dien|hoa nhac)\b/.test(custom);
+  if (wantsSession) {
+    const candidates = sessionsInRange(calendar).filter((session) => named ? session.name === named.name
+      : !/\bhoa nhac\b/.test(custom) || fold(session.name).includes('hoa nhac'))
+      .toSorted((a, b) => geography.score({ id: b.placeId }) - geography.score({ id: a.placeId }));
+    const wasAdded = candidates.some(({ id }) => calendar.events.some(({ sessionId }) => sessionId === id));
+    if (!wasAdded) {
+      const attempts = candidates.map(({ id }) => calendarCommand(calendar, { type: 'add-session', sessionId: id }, budget));
+      const accepted = attempts.find((result) => result.issues?.length === 0);
+      if (accepted) {
+        next = accepted.calendar;
+        const { event } = accepted;
+        added.push(`${event.title} · ${momentLabel(event.start)}`);
+        const outside = geography.outsideNote([{ id: event.placeId, name: event.title }], 'Chưa có suất phù hợp hơn trong phường ưu tiên.');
+        if (outside) notes.push(outside);
+      } else {
+        const conflict = attempts[0]?.issues?.[0]?.message;
+        notes.push(conflict ? `Chưa xếp được suất demo. ${conflict}` : 'Chưa có suất demo khớp yêu cầu trong thời gian chuyến.');
+      }
+    }
+  }
+  const remainingIdeas = { ...answers, idea: { ...requestedIdea, custom: wantsSession ? '' : requestedIdea.custom } };
+  if (wantsSession && !requestedIdea.ids.some((id) => id !== 'event-session') &&
+      !answers.places.ids.length && !answers.places.custom) return { calendar: next, added, attached, notes };
+  const priorities = plansFor(remainingIdeas, next, notes, geography);
   for (const { label, candidates, attachOnly } of priorities) {
     if (label === 'Điểm phù hợp với chuyến' && (attached.length || next.events.some(({ placeId }) => placeId))) continue;
     if (candidates.some(({ id }) => next.events.some(({ placeId }) => placeId === id)) && !attachOnly) continue;
