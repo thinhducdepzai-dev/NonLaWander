@@ -699,19 +699,11 @@ export function setupCalendarView({ trips, updated, tripHash, savedHref, announc
   }
   window.visualViewport?.addEventListener('resize', sizeOverlay);
 
-  function sizeDesktopPanel() {
-    if (!panel || !widePanel.matches || workspace.hidden) return;
-    const top = workspace.getBoundingClientRect().top + window.scrollY;
-    workspace.style.setProperty('--ai-panel-top', `${top}px`);
-  }
-  new ResizeObserver(sizeDesktopPanel).observe($('trip-header'));
-
   function renderPanels() {
     const panelOnly = !!panel && !widePanel.matches;
     workspace.classList.toggle('with-panel', !!panel);
     workspace.classList.toggle('panel-only', panelOnly);
     setOverlay(panelOnly && panel !== 'library');
-    sizeDesktopPanel();
     for (const [name, config] of Object.entries(panels)) {
       $(config.element).hidden = name !== panel;
       $(config.button).setAttribute('aria-expanded', name === panel);

@@ -8,6 +8,9 @@ const $ = (id) => document.getElementById(id);
 export function setupCalendarPlanning({ getTrip, getCalendar, save, apply, undo }) {
   const form = $('calendar-planning-form');
   const choices = $('calendar-planning-choices');
+  const people = $('calendar-planning-people');
+  const peopleOptions = [...people.querySelectorAll('input')];
+  const numberField = $('calendar-planning-number-field');
   const number = $('calendar-planning-number');
   const free = $('calendar-planning-custom');
   const title = $('calendar-planning-question');
@@ -17,6 +20,8 @@ export function setupCalendarPlanning({ getTrip, getCalendar, save, apply, undo 
   const wardsRoot = $('calendar-planning-wards');
   const wardPicker = setupWardPicker(wardsRoot, (wardIds) => update({ ids: [], custom: '', wardIds }));
   let context;
+  let peopleChoice;
+  let peopleValue;
 
   function render() {
     const trip = getTrip();
@@ -26,12 +31,12 @@ export function setupCalendarPlanning({ getTrip, getCalendar, save, apply, undo 
     const finalStep = progress.step === planningQuestions.length - 1;
     const value = progress.answers[question.key];
     const choosingWards = question.type === 'wards';
-    form.closest('.calendar-panel').classList.toggle('is-ward-step', choosingWards && !done);
     const key = `${trip.id}/${question.key}`;
-    if (key !== context) {
+    const changed = key !== context;
+    if (changed) {
       error.textContent = '';
+      number.removeAttribute('aria-invalid');
       context = key;
-      content.scrollTop = 0;
     }
     $('calendar-planning-step').textContent = `Bước ${progress.step + 1}/${planningQuestions.length}`;
     const bar = $('calendar-planning-progress');
@@ -48,6 +53,7 @@ export function setupCalendarPlanning({ getTrip, getCalendar, save, apply, undo 
       : 'Xác nhận';
     if (done) {
       renderReceipt(progress.result, trip.draft.calendarUndoId);
+      content.scrollTop = 0;
       return;
     }
 
@@ -60,10 +66,20 @@ export function setupCalendarPlanning({ getTrip, getCalendar, save, apply, undo 
       : `${momentLabel(calendar.start)} → ${momentLabel(calendar.end)}`;
     $('calendar-planning-range').textContent = when;
     $('calendar-planning-range').hidden = progress.step !== 0;
-    $('calendar-planning-number-field').hidden = question.type !== 'number';
+    const choosingPeople = question.key === 'people';
+    people.hidden = !choosingPeople;
+    if (choosingPeople) {
+      if (changed || value !== peopleValue) {
+        const count = String(Number(value));
+        peopleChoice = peopleOptions.some((option) => option.value === count) ? count : 'other';
+      }
+      peopleValue = value;
+      for (const option of peopleOptions) option.checked = option.value === peopleChoice;
+    }
+    numberField.hidden = question.type !== 'number' || (choosingPeople && peopleChoice !== 'other');
     if (question.type === 'number') {
-      $('calendar-planning-number-label').textContent = question.label;
-      if (document.activeElement !== number || number.value !== value) number.value = value;
+      $('calendar-planning-number-label').textContent = choosingPeople ? 'Số người' : question.label;
+      if (number.value !== value) number.value = value;
     }
     wardsRoot.hidden = !choosingWards;
     $('calendar-planning-previous-area').hidden = true;
@@ -100,6 +116,7 @@ export function setupCalendarPlanning({ getTrip, getCalendar, save, apply, undo 
     $('calendar-planning-other').setAttribute('aria-expanded', !!question.custom && showCustom);
     $('calendar-planning-custom-label').textContent = question.custom ?? '';
     if (question.custom && free.value !== value.custom) free.value = value.custom;
+    if (changed) content.scrollTop = 0;
   }
 
   function renderReceipt(receipt, undoId) {
@@ -137,10 +154,20 @@ export function setupCalendarPlanning({ getTrip, getCalendar, save, apply, undo 
     error.textContent = '';
     number.removeAttribute('aria-invalid');
     update(current().value, step);
+    content.scrollTop = 0;
     title.focus({ preventScroll: true });
   }
 
+  people.addEventListener('change', (event) => {
+    peopleChoice = event.target.value;
+    peopleValue = peopleChoice === 'other' ? '' : peopleChoice;
+    error.textContent = '';
+    number.removeAttribute('aria-invalid');
+    update(peopleValue);
+  });
+
   number.addEventListener('input', () => {
+    if (current().question.key === 'people') peopleValue = number.value;
     update(number.value);
     error.textContent = '';
     number.removeAttribute('aria-invalid');
@@ -168,6 +195,7 @@ export function setupCalendarPlanning({ getTrip, getCalendar, save, apply, undo 
   $('calendar-planning-skip').addEventListener('click', () => {
     const { progress, question } = current();
     update(question.type === 'number' ? '' : { ids: [], custom: '' }, progress.step + 1);
+    content.scrollTop = 0;
     title.focus({ preventScroll: true });
   });
   form.addEventListener('submit', (event) => {

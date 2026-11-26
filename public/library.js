@@ -134,7 +134,8 @@ function renderResults() {
   const group = category.value;
   const matching = filterLibraryPlaces(query.value, group);
   const name = foldName(query.value);
-  const ideas = experiences.filter((item) => foldName(item.name).includes(name));
+  const ideas = experiences.filter((item) => foldName(item.name).includes(name) &&
+    (!group || experiencePlaces(item).some((place) => place.category === group)));
   $('library-experiences').replaceChildren(...ideas.map((item) => {
     const row = libraryCard(item, libraryHref(experiencePath(item.id)), `${item.kind} · ${experiencePlaceLabel(item)}`);
     row.querySelector('a').dataset.experienceId = item.id;

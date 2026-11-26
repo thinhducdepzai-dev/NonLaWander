@@ -1,6 +1,6 @@
 import { calendarOf } from './calendar.js';
 import { setupCalendarView } from './calendar-view.js';
-import { areas, experienceById, experiencePlaces, placeById } from './data.js';
+import { areas, experienceById, placeById } from './data.js';
 import { setupHomeMotion } from './home.js';
 import { icon } from './icons.js';
 import { experienceHref, experiencePlaceLabel, getLibraryReturn, renderLibrary, setupLibraryActions, tripLibraryHref } from './library.js';
@@ -8,7 +8,7 @@ import { dateIndex } from './planner.js';
 import { createTripStore, hasDraftChanges } from './trips.js';
 
 const $ = (id) => document.getElementById(id);
-const updateHomePhoto = setupHomeMotion($('home-view'));
+setupHomeMotion($('home-view'));
 const shortDate = (date) => `${date.slice(8, 10)}/${date.slice(5, 7)}`;
 const year = (date) => date.slice(0, 4);
 
@@ -136,11 +136,6 @@ function tripStatus(trip) {
 }
 
 function renderHome() {
-  for (const link of $('home-view').querySelectorAll('[data-home-experience]')) {
-    const item = experienceById[link.dataset.homeExperience];
-    link.hidden = !item || !experiencePlaces(item).length;
-    if (!link.hidden) link.href = experienceHref(item.id);
-  }
   const [recent] = trips.list();
   $('home-recent').hidden = !recent;
   if (!recent) return;
@@ -270,7 +265,6 @@ function renderRoute(focus = false, previousHash = '') {
       window.scrollTo({ top: 0, behavior: 'instant' });
       $('home-title').focus({ preventScroll: true });
     }
-    updateHomePhoto();
   }
   showStorageStatus();
 }

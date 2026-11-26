@@ -38,7 +38,6 @@
           <p>Từ một quán muốn thử đến cả buổi dạo Hà Nội, gom những điểm yêu thích và xếp lịch theo thời gian, ngân sách của bạn.</p>
           <div class="home-actions">
             <button type="button" id="home-create-trip" class="primary-button" data-create-trip><span data-icon="plus"></span>Tạo chuyến đi</button>
-            <a id="home-library-link" class="text-button home-library-link" href="#library">Khám phá thư viện <span aria-hidden="true">↗</span></a>
           </div>
           <p class="home-ai-note">Bạn có thể tự xếp lịch ngay. Gợi ý bằng AI đang được phát triển.</p>
         </header>
@@ -61,6 +60,7 @@
             <p class="home-category">Địa điểm tham quan</p>
             <h2 id="home-sight-title">Văn Miếu – Quốc Tử Giám</h2>
             <p>Qua Khuê Văn Các, dạo giữa những sân gạch và hàng cây. Dành thêm chút thời gian để ngắm bia tiến sĩ và những chi tiết trên mái ngói.</p>
+            <a class="home-projects-link" href="#library?group=V%C4%83n+h%C3%B3a">Khám phá điểm tham quan <span aria-hidden="true">→</span></a>
           </div>
           <figure class="home-story-photo home-sight-photo">
             <img src="/assets/van-mieu.webp" alt="Khuê Văn Các với gác gỗ đỏ và mái ngói tại Văn Miếu" width="1200" height="798" loading="lazy">
@@ -72,7 +72,7 @@
             <p class="home-category">Quán ăn ngon</p>
             <h2 id="home-food-title">Bún chả Hà Nội</h2>
             <p>Một suất bún trắng, chả nướng và rau thơm. Gắp từng đũa bún chấm vào bát nước mắm chua ngọt để thưởng thức đủ vị.</p>
-            <a class="home-projects-link" data-home-experience="bun-cha" hidden>Xem nơi thử bún chả <span aria-hidden="true">→</span></a>
+            <a class="home-projects-link" href="#library?group=%C4%82n+u%E1%BB%91ng">Khám phá quán ăn <span aria-hidden="true">→</span></a>
           </div>
           <figure class="home-story-photo">
             <img src="/assets/bun-cha.webp" alt="Một suất bún chả với thịt nướng, bún trắng và rau thơm" width="1200" height="800" loading="lazy">
@@ -84,6 +84,7 @@
             <p class="home-category">Địa điểm giải trí</p>
             <h2 id="home-play-title">Hẹn bạn bè đi chơi</h2>
             <p>Rủ nhau hát trong phòng music box nếu cả nhóm mê nhạc, hoặc ghé quán net để chơi vài ván cùng nhau.</p>
+            <a class="home-projects-link" href="#library">Khám phá thư viện <span aria-hidden="true">→</span></a>
           </div>
           <figure class="home-story-photo">
             <img src="/assets/quan-net.webp" alt="Ảnh minh họa một phòng chơi game có dãy máy tính và ghế chơi game" width="1200" height="675" loading="lazy">
@@ -494,6 +495,13 @@
                 <h3 id="calendar-planning-question" tabindex="-1"></h3>
                 <p id="calendar-planning-hint" class="helper"></p>
                 <p id="calendar-planning-range" class="helper"></p>
+                <fieldset id="calendar-planning-people" class="ai-pills" aria-labelledby="calendar-planning-question" hidden>
+                  <label class="ai-radio"><input type="radio" name="planning-people" value="1"><span class="ai-pill">1 người</span></label>
+                  <label class="ai-radio"><input type="radio" name="planning-people" value="2"><span class="ai-pill">2 người</span></label>
+                  <label class="ai-radio"><input type="radio" name="planning-people" value="3"><span class="ai-pill">3 người</span></label>
+                  <label class="ai-radio"><input type="radio" name="planning-people" value="4"><span class="ai-pill">4 người</span></label>
+                  <label class="ai-radio"><input type="radio" name="planning-people" value="other" aria-controls="calendar-planning-number-field"><span class="ai-pill">Khác</span></label>
+                </fieldset>
                 <div id="calendar-planning-number-field" class="field">
                   <label id="calendar-planning-number-label" for="calendar-planning-number"></label>
                   <input id="calendar-planning-number" type="text" inputmode="numeric" maxlength="16" aria-describedby="calendar-planning-error">
