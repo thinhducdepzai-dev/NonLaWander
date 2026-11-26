@@ -1,5 +1,6 @@
-import { areas, experienceById, experiencePlaces, experiences, places, vibes } from './data.js';
+import { areas, experienceById, experiencePlaces, experiences, libraryPlaces as places, vibes } from './data.js';
 import { availableStart, dayCount, dayMinutes, dayStart, momentLabel, placeCategory, timeOf } from './calendar.js';
+import { wardPreference } from './wards.js';
 
 const fold = (value) => value.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').replaceAll('đ', 'd');
 const $ = (id) => document.getElementById(id);
@@ -126,7 +127,8 @@ export function calendarDemoReply(message, calendar, contextId, preferences = {}
     target ? placeCategory(place) === target.category
       : asksForFood ? placeCategory(place) === 'food' && (!/ho guom/.test(text) || place.area === 'lake')
         : asksForAfternoon || selectedAreas.length || selectedVibes.length || placeCategory(place) === 'cafe');
-  const score = (place) => 2 * Number(selectedAreas.some(({ id }) => place.area === id)) +
+  const geography = wardPreference(preferences.wardIds);
+  const score = (place) => geography.score(place) + 2 * Number(selectedAreas.some(({ id }) => place.area === id)) +
     Number(selectedVibes.some(({ id }) => place.vibes.includes(id)));
   const related = candidates.toSorted((a, b) => score(b) - score(a));
   if (action === 'attach' && hypothetical && target && !match) {
@@ -164,9 +166,13 @@ export function calendarDemoReply(message, calendar, contextId, preferences = {}
   }
   const asksForSuggestion = /\b(goi y|cho minh|co .* nao|quan nao|nen di|kham pha)\b/.test(text);
   if (related.length && (asksForSuggestion || asksForFood || match || experience)) {
-    return { reply: asksForFood ? 'Quanh Hồ Gươm, Library demo có các lựa chọn ăn nhẹ này.'
+    const results = related.slice(0, 3);
+    const intro = asksForFood && /ho guom/.test(text) ? 'Quanh Hồ Gươm, Library demo có các lựa chọn ăn nhẹ này.'
+      : asksForFood ? 'Bạn có thể thử các món này trong Library demo.'
       : asksForAfternoon ? 'Bạn có thể bắt đầu với một điểm dạo phố, tham quan hoặc nghỉ chân.'
-        : 'Bạn có thể cân nhắc các địa điểm trong Library demo dưới đây.', choices: related.slice(0, 3).map(({ id }) => id) };
+        : 'Bạn có thể cân nhắc các địa điểm trong Library demo dưới đây.';
+    const outside = geography.outsideNote(results, 'Các phường ưu tiên có ít điểm phù hợp với yêu cầu trong dữ liệu demo.');
+    return { reply: [intro, outside].filter(Boolean).join(' '), choices: results.map(({ id }) => id) };
   }
   return { reply: 'Bản demo chưa xử lý được yêu cầu này. Mình có thể gợi ý địa điểm trong Library hoặc kiểm tra ngày giờ trong lịch chuyến.' };
 }
@@ -249,7 +255,10 @@ export function setupCalendarChat({ getTrip, getCalendar, save, preview, apply, 
     const chat = state();
     const trip = getTrip();
     const preferences = {
-      area: areas.filter(({ id }) => trip.draft.form.areas.includes(id)).map(({ label }) => label).join(' '),
+      wardIds: trip.wardIds,
+      area: trip.wardIds === undefined
+        ? areas.filter(({ id }) => (trip.planning?.answers?.area?.ids ?? trip.draft.form.areas).includes(id)).map(({ label }) => label).join(' ')
+        : '',
       vibe: vibes.filter(({ id }) => trip.draft.form.vibes.includes(id)).map(({ label }) => label).join(' '),
       idea: experienceById[trip.savedExperienceIds[0]]?.name,
     };

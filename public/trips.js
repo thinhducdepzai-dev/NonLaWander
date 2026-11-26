@@ -2,6 +2,7 @@ import { areas, experienceById, periodById, placeById, transports, vibes } from 
 import { calendarBudget, calendarCommand, calendarOf, dateOf, isCalendar, validCalendarRange } from './calendar.js';
 import { planCalendarDraft, planningForm, planningIssue, planningQuestions, updatePlanning } from './calendar-planning.js';
 import { appendVisit, dateIndex, draftBudget, moveVisit, newVisitId, placeCost, prepareRequest, previewReplacement } from './planner.js';
+import { normalizeWardIds } from './wards.js';
 
 export const legacyStorageKey = 'nonla-wander-v1';
 export const tripStoragePrefix = 'nonla-wander-v2:';
@@ -394,7 +395,17 @@ export function createTripStore(storage) {
   function savePlanning(id, change) {
     const trip = get(id);
     const planning = trip && updatePlanning(trip, change);
-    return planning ? write({ ...trip, planning }) : null;
+    if (!planning) return null;
+    const { wardIds } = change.key === 'area' ? planning.answers.area : {};
+    return write({ ...trip, planning, ...(wardIds === undefined ? {} : { wardIds: normalizeWardIds(wardIds) }) });
+  }
+
+  function setTripWards(id, ids) {
+    const trip = get(id);
+    if (!trip) return null;
+    const wardIds = normalizeWardIds(ids);
+    const planning = trip.planning && { ...trip.planning, result: null };
+    return write({ ...trip, wardIds, ...(planning ? { planning } : {}) });
   }
 
   function applyPlanning(id) {
@@ -438,7 +449,7 @@ export function createTripStore(storage) {
     list, get, create, rename, saveDraft, setParticipants, setSavedPlace, setSavedExperience, addVisit, moveVisit: moveDraftVisit,
     previewReplacement: previewDraftReplacement, replaceVisit: replaceDraftVisit, confirm, migrateLegacy,
     setCalendarSetup, setCalendarRange, setCalendarMode, changeCalendar, undoCalendar, setCalendarPreferences, saveConversation,
-    setCalendarTool, savePlanning, applyPlanning,
+    setCalendarTool, savePlanning, applyPlanning, setTripWards,
     get storageProblem() { return readFailed || unsaved.size > 0; },
   };
 }

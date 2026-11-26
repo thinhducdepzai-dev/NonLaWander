@@ -40,7 +40,13 @@ export const places = [
   { id: 'cho-dem', name: 'Chợ đêm Phố cổ', category: 'Dạo phố', icon: 'bag', area: 'quarter', vibes: ['food', 'slow'], cost: 50_000, duration: 70, lat: 21.03440, lon: 105.85072, hours: [{ start: '19:00', end: '23:00', days: [5, ...weekend] }], crowd: 'Đông từ khoảng 20:00' },
 ];
 
-export const placeById = Object.fromEntries(places.map((place) => [place.id, place]));
+export const wardLibraryPlaces = [
+  { id: 'nha-hat-lon', name: 'Nhà hát Lớn Hà Nội', category: 'Kiến trúc', icon: 'landmark', vibes: ['culture', 'photo'],
+    duration: 35, lat: 21.02417, lon: 105.85744, description: 'Ngắm kiến trúc Nhà hát Lớn từ quảng trường, tại số 1 Tràng Tiền. Lượt ghé demo chỉ tính thời gian tham quan bên ngoài.' },
+];
+
+export const libraryPlaces = [...places, ...wardLibraryPlaces];
+export const placeById = Object.fromEntries(libraryPlaces.map((place) => [place.id, place]));
 export const periodById = Object.fromEntries(periods.map((period) => [period.id, period]));
 
 // Liên kết demo dựa trên tên, nhóm hoặc vibe đã có của địa điểm.
@@ -49,7 +55,7 @@ export const experiences = [
   { id: 'kem', name: 'Kem', kind: 'Món ăn', icon: 'food', placeIds: ['trang-tien'] },
   { id: 'uong-ca-phe', name: 'Uống cà phê', kind: 'Hoạt động', icon: 'coffee', placeIds: ['dinh-cafe', 'giang-cafe'] },
   { id: 'dao-pho', name: 'Dạo phố', kind: 'Hoạt động', icon: 'walk', placeIds: ['ho-guom', 'cho-dem'] },
-  { id: 'chup-anh', name: 'Chụp ảnh', kind: 'Hoạt động', icon: 'camera', placeIds: ['ho-guom', 'ngoc-son', 'nha-tho', 'ma-may', 'dong-xuan'] },
+  { id: 'chup-anh', name: 'Chụp ảnh', kind: 'Hoạt động', icon: 'camera', placeIds: ['ho-guom', 'ngoc-son', 'nha-tho', 'ma-may', 'dong-xuan', 'nha-hat-lon'] },
   { id: 'ca-phe-trung', name: 'Cà phê trứng', kind: 'Món ăn', icon: 'coffee', placeIds: [] },
   { id: 'bun-cha', name: 'Bún chả', kind: 'Món ăn', icon: 'food', placeIds: [] },
 ];

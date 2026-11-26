@@ -1,7 +1,8 @@
 import { calendarOf } from './calendar.js';
-import { areas, experienceById, experiencePlaces, experiences, placeById, places } from './data.js';
+import { areas, experienceById, experiencePlaces, experiences, placeById, libraryPlaces as places } from './data.js';
 import { icon } from './icons.js';
 import { hasKnownCost } from './planner.js';
+import { placeWard } from './wards.js';
 
 const $ = (id) => document.getElementById(id);
 const query = $('library-query');
@@ -174,6 +175,8 @@ function renderDetail(place) {
 
   $('library-detail-category').textContent = place.category;
   $('library-detail-area').textContent = areaLabels.get(place.area) ?? 'Chưa có khu vực';
+  const ward = placeWard(place.id);
+  $('library-detail-ward').textContent = ward ? `Phường ${ward.name}` : 'Chưa xác minh';
   $('library-detail-cost').textContent = placeCost(place);
   $('library-detail-duration').textContent = Number.isFinite(place.duration) ? `${place.duration} phút` : 'Chưa có thời lượng';
   $('library-detail-note').hidden = !place.crowd;

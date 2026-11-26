@@ -1,4 +1,4 @@
-import { placeById, places } from './data.js';
+import { placeById, libraryPlaces as places } from './data.js';
 import { icon } from './icons.js';
 import { filterLibraryPlaces, libraryGroups } from './library.js';
 import { placeCost } from './planner.js';
@@ -7,6 +7,8 @@ import { calendarBudget, calendarCosts, calendarDate, calendarLegs, calendarOf, 
   timeOf, travelEstimate, validCalendarRange, wallMinute } from './calendar.js';
 import { setupCalendarChat } from './calendar-ai.js';
 import { setupCalendarPlanning } from './calendar-planning-view.js';
+import { setupWardPicker } from './ward-picker.js';
+import { normalizeWardIds, wardById } from './wards.js';
 import { hasDraftChanges, isParticipantCount, participantCount } from './trips.js';
 
 const $ = (id) => document.getElementById(id);
@@ -40,6 +42,11 @@ export function setupCalendarView({ trips, updated, tripHash, savedHref, announc
   const categoryControl = eventForm.elements.category;
   const costForm = $('calendar-cost-form');
   const costSettings = $('calendar-cost-settings');
+  const wardDialog = $('calendar-ward-dialog');
+  let pendingWards;
+  const manualWards = setupWardPicker($('calendar-manual-wards'), (ids) => { pendingWards = ids; }, (link) => {
+    if (!link.target) wardDialog.close();
+  });
   let trip;
   let confirmed;
   let calendar;
@@ -203,6 +210,27 @@ export function setupCalendarView({ trips, updated, tripHash, savedHref, announc
     ].filter(Boolean).join(' · ');
   }
 
+  function renderWardSummary() {
+    const names = normalizeWardIds(trip.wardIds).map((id) => wardById[id].name);
+    $('calendar-ward-summary').textContent = names.join(', ');
+    $('calendar-ward-settings').hidden = confirmed;
+  }
+
+  $('calendar-open-wards').addEventListener('click', () => {
+    pendingWards = normalizeWardIds(trip.wardIds);
+    manualWards.render(pendingWards, trip.id);
+    wardDialog.showModal();
+    $('calendar-ward-title').focus();
+  });
+  $('calendar-close-wards').addEventListener('click', () => wardDialog.close());
+  $('calendar-save-wards').addEventListener('click', () => {
+    handleUpdate(trips.setTripWards(trip.id, pendingWards));
+    renderWardSummary();
+    if (panel === 'planning') planning.render();
+    wardDialog.close();
+    announce('Đã lưu phường ưu tiên cho chuyến này.');
+  });
+
   function updateCostFields() {
     costForm.elements.participants.value = participantCount(trip.draft);
     costForm.elements.budget.value = calendarBudget(trip.draft) ?? '';
@@ -347,6 +375,7 @@ export function setupCalendarView({ trips, updated, tripHash, savedHref, announc
     const version = confirmed ? trip.confirmed : trip.draft;
     $('calendar-tools').hidden = confirmed;
     costSettings.hidden = confirmed;
+    renderWardSummary();
     $('calendar-title').textContent = confirmed ? 'Lịch đã chốt' : 'Lịch nháp';
     $('calendar-range-label').textContent = timeRange(calendar.start, calendar.end);
     $('calendar-confirm').hidden = confirmed;
@@ -605,6 +634,7 @@ export function setupCalendarView({ trips, updated, tripHash, savedHref, announc
       const value = trips.savePlanning(trip.id, change);
       if (value) {
         handleUpdate(value);
+        renderWardSummary();
         planning.render();
       }
     },
@@ -682,7 +712,7 @@ export function setupCalendarView({ trips, updated, tripHash, savedHref, announc
   }
   for (const button of workspace.querySelectorAll('[data-calendar-close-panel]')) button.addEventListener('click', () => setPanel());
   document.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape' || event.isComposing || !trip || !panel || workspace.hidden || dialog.open) return;
+    if (event.key !== 'Escape' || event.isComposing || !trip || !panel || workspace.hidden || dialog.open || wardDialog.open) return;
     if (!$(panels[panel].element).contains(event.target) && !$(panels[panel].button).contains(event.target)) return;
     event.preventDefault();
     setPanel();
@@ -807,6 +837,7 @@ export function setupCalendarView({ trips, updated, tripHash, savedHref, announc
     render(value, readOnly, resumePlace, focus = false) {
       if (!value) {
         if (dialog.open) dialog.close();
+        if (wardDialog.open) wardDialog.close();
         setOverlay(false);
         trip = undefined;
         lastResume = undefined;
@@ -814,6 +845,7 @@ export function setupCalendarView({ trips, updated, tripHash, savedHref, announc
       }
       const changed = trip?.id !== value.id || confirmed !== readOnly;
       if (changed && dialog.open) dialog.close();
+      if (changed && wardDialog.open) wardDialog.close();
       trip = value;
       confirmed = readOnly;
       calendar = calendarOf(readOnly ? value.confirmed : value.draft);

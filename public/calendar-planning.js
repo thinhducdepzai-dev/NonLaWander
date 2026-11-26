@@ -1,11 +1,12 @@
-import { areas, experienceById, experiences, placeById, places, transports, vibes } from './data.js';
+import { areas, experienceById, experiences, placeById, libraryPlaces as places, transports, vibes } from './data.js';
 import { calendarBudget, calendarCommand, calendarCosts, dayMinutes, dayStart, momentLabel, openingNote, placeCategory } from './calendar.js';
+import { normalizeWardIds, wardPreference } from './wards.js';
 
 export const planningQuestions = [
   { key: 'people', title: 'Chuyến đi có bao nhiêu người?', label: 'Số người tham gia', type: 'number', required: true },
   { key: 'vibe', title: 'Bạn thích chuyến đi có vibe nào?', type: 'multiple', options: vibes, custom: 'Vibe khác' },
   { key: 'idea', title: 'Bạn muốn thử món ăn hay hoạt động nào?', type: 'multiple', options: experiences.map(({ id, name }) => ({ id, label: name })), custom: 'Món ăn hoặc hoạt động khác' },
-  { key: 'area', title: 'Bạn muốn ưu tiên khu vực nào?', type: 'multiple', options: areas, custom: 'Khu vực khác' },
+  { key: 'area', title: 'Bạn muốn ưu tiên phường nào?', type: 'wards', options: areas },
   { key: 'budget', title: 'Ngân sách mỗi người là bao nhiêu?', label: 'Ngân sách (₫/người)', type: 'number' },
   { key: 'transport', title: 'Bạn muốn di chuyển bằng gì?', type: 'single', options: transports, custom: 'Phương tiện khác' },
   { key: 'places', title: 'Có nơi nào bạn nhất định muốn ghé?', type: 'multiple', options: places.map(({ id, name }) => ({ id, label: name })), custom: 'Địa điểm khác' },
@@ -41,7 +42,9 @@ export function planningForm(trip) {
   return {
     ...planning,
     step: Math.min(planningQuestions.length - 1, Math.max(0, planning?.step ?? oldStep)),
-    answers: { ...answers, ...planning?.answers },
+    answers: { ...answers, ...planning?.answers,
+      area: trip.wardIds === undefined ? { ...answers.area, ...planning?.answers?.area }
+        : { ids: [], custom: '', wardIds: normalizeWardIds(trip.wardIds) } },
   };
 }
 
@@ -67,14 +70,14 @@ function choice(answers, key) {
   return { ids: ids.length || !custom ? ids : options.filter(({ label }) => fold(label) === fold(custom)).map(({ id }) => id), custom };
 }
 
-function plansFor(answers, calendar, notes) {
+function plansFor(answers, calendar, notes, geography) {
   const selectedVibes = choice(answers, 'vibe');
   const selectedAreas = choice(answers, 'area');
   const desiredPlaces = choice(answers, 'places');
   const desiredIdeas = choice(answers, 'idea');
   const hasPreference = (place) => selectedVibes.ids.some((id) => place.vibes.includes(id));
   const areaMatches = (place) => selectedAreas.ids.includes(place.area);
-  const rank = (place) => 2 * Number(areaMatches(place)) + Number(hasPreference(place));
+  const rank = (place) => geography.score(place) + 2 * Number(areaMatches(place)) + Number(hasPreference(place));
   const priorities = desiredPlaces.ids.map((id) => ({ label: placeById[id].name, candidates: [placeById[id]] }));
   const exactPlace = places.find(({ name }) => fold(name) === fold(desiredPlaces.custom));
   if (desiredPlaces.custom && !exactPlace) notes.push(`Library demo chưa có “${desiredPlaces.custom}”.`);
@@ -117,7 +120,7 @@ function attachAtExistingTime(calendar, candidates, budget) {
   return null;
 }
 
-function fitNewVisit(calendar, candidates, budget) {
+function fitNewVisit(calendar, candidates, budget, geography) {
   const total = calendarCosts(calendar.events).total;
   const gaps = [];
   let cursor = calendar.start;
@@ -128,6 +131,7 @@ function fitNewVisit(calendar, candidates, budget) {
   if (cursor < calendar.end) gaps.push({ start: cursor, end: calendar.end });
   let fallback;
   for (const place of candidates) {
+    if (fallback && geography.score(place) < geography.score(placeById[fallback.event.placeId])) return fallback;
     if (budget !== null && total + (place.cost ?? 0) > budget) continue;
     for (const gap of gaps) {
       // Demo opening hours repeat weekly. Include the next full week after a partial first day.
@@ -157,20 +161,24 @@ export function planCalendarDraft(calendar, answers) {
     notes.push('Chưa xếp địa điểm tự động cho phương tiện này. Dữ liệu demo hiện chỉ tính được đường đi bộ.');
     return { calendar, added, attached, notes };
   }
-  const priorities = plansFor(answers, calendar, notes);
+  const geography = wardPreference(answers.area.wardIds);
+  const priorities = plansFor(answers, calendar, notes, geography);
   let next = calendar;
   for (const { label, candidates, attachOnly } of priorities) {
     if (label === 'Điểm phù hợp với chuyến' && (attached.length || next.events.some(({ placeId }) => placeId))) continue;
     if (candidates.some(({ id }) => next.events.some(({ placeId }) => placeId === id)) && !attachOnly) continue;
     const eligible = candidates.filter(({ id }) => !next.events.some(({ placeId }) => placeId === id));
     const attachment = attachAtExistingTime(next, eligible, budget);
-    const result = attachment ?? (!attachOnly && fitNewVisit(next, eligible, budget));
+    const result = attachment ?? (!attachOnly && fitNewVisit(next, eligible, budget, geography));
     if (!result) {
       notes.push(eligible.length ? `Chưa xếp được ${label} trong khung giờ và ngân sách còn lại.` : `Chưa tìm được địa điểm mới cho ${label} trong Library demo.`);
       continue;
     }
     next = result.calendar;
     const { event } = result;
+    const outside = geography.outsideNote([placeById[event.placeId]],
+      'Library demo chưa có điểm phù hợp hơn trong phường đã chọn cho yêu cầu hoặc khung giờ này.');
+    if (outside) notes.push(outside);
     const when = momentLabel(event.start);
     if (attachment) attached.push(`${placeById[event.placeId].name} vào “${event.title}” · ${when}`);
     else added.push(`${event.title} · ${when}`);

@@ -1,6 +1,7 @@
 import { dayOf, momentLabel, timeOf } from './calendar.js';
 import { planningForm, planningIssue, planningQuestions } from './calendar-planning.js';
 import { icon } from './icons.js';
+import { setupWardPicker } from './ward-picker.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -13,6 +14,8 @@ export function setupCalendarPlanning({ getTrip, getCalendar, save, apply, undo 
   const content = $('calendar-planning-body');
   const result = $('calendar-planning-result');
   const error = $('calendar-planning-error');
+  const wardsRoot = $('calendar-planning-wards');
+  const wardPicker = setupWardPicker(wardsRoot, (wardIds) => update({ ids: [], custom: '', wardIds }));
   let context;
 
   function render() {
@@ -22,6 +25,8 @@ export function setupCalendarPlanning({ getTrip, getCalendar, save, apply, undo 
     const done = progress.result && !progress.result.undone;
     const finalStep = progress.step === planningQuestions.length - 1;
     const value = progress.answers[question.key];
+    const choosingWards = question.type === 'wards';
+    form.closest('.calendar-panel').classList.toggle('is-ward-step', choosingWards && !done);
     const key = `${trip.id}/${question.key}`;
     if (key !== context) {
       error.textContent = '';
@@ -37,7 +42,7 @@ export function setupCalendarPlanning({ getTrip, getCalendar, save, apply, undo 
     result.hidden = !done;
     $('calendar-planning-actions').hidden = !!done;
     $('calendar-planning-back').hidden = progress.step === 0;
-    $('calendar-planning-skip').hidden = finalStep || Boolean(question.required);
+    $('calendar-planning-skip').hidden = finalStep || choosingWards || Boolean(question.required);
     $('calendar-planning-submit').textContent = finalStep
       ? getCalendar().events.length ? 'Cập nhật lịch nháp' : 'Tạo lịch nháp'
       : 'Xác nhận';
@@ -60,8 +65,17 @@ export function setupCalendarPlanning({ getTrip, getCalendar, save, apply, undo 
       $('calendar-planning-number-label').textContent = question.label;
       if (document.activeElement !== number || number.value !== value) number.value = value;
     }
-    choices.hidden = !question.options;
-    if (question.options && choices.dataset.question !== question.key) {
+    wardsRoot.hidden = !choosingWards;
+    $('calendar-planning-previous-area').hidden = true;
+    if (choosingWards) {
+      wardPicker.render(value.wardIds, trip.id);
+      const legacy = planningQuestions.find(({ key }) => key === 'area').options
+        .filter(({ id }) => value.ids?.includes(id)).map(({ label }) => label);
+      $('calendar-planning-previous-area').hidden = !legacy.length && !value.custom;
+      $('calendar-planning-previous-area').textContent = `Khu vực du lịch đã lưu: ${[...legacy, value.custom].filter(Boolean).join(', ')}.`;
+    }
+    choices.hidden = choosingWards || !question.options;
+    if (!choices.hidden && choices.dataset.question !== question.key) {
       choices.dataset.question = question.key;
       choices.replaceChildren(...question.options.map((option) => {
         const button = document.createElement('button');
@@ -76,7 +90,7 @@ export function setupCalendarPlanning({ getTrip, getCalendar, save, apply, undo 
         return button;
       }), $('calendar-planning-other'));
     }
-    if (question.options) {
+    if (!choices.hidden) {
       for (const button of choices.querySelectorAll('[data-planning-choice]')) {
         button.setAttribute('aria-pressed', value.ids.includes(button.dataset.planningChoice));
       }

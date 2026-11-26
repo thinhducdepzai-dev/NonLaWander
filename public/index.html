@@ -201,7 +201,8 @@
       <section id="library-detail-content" class="library-detail-content" aria-labelledby="library-detail-info-title">
         <h2 id="library-detail-info-title">Thông tin ghé thăm</h2>
         <dl>
-          <div><dt>Khu vực</dt><dd id="library-detail-area"></dd></div>
+          <div><dt>Khu vực du lịch</dt><dd id="library-detail-area"></dd></div>
+          <div><dt>Phường hành chính</dt><dd id="library-detail-ward"></dd></div>
           <div><dt>Chi phí ước tính / người</dt><dd id="library-detail-cost"></dd></div>
           <div><dt>Thời lượng gợi ý</dt><dd id="library-detail-duration"></dd></div>
           <div><dt>Giờ mở cửa tham khảo</dt><dd id="library-detail-hours"></dd></div>
@@ -351,6 +352,10 @@
               </form>
             </details>
           </div>
+          <div id="calendar-ward-settings" class="calendar-ward-settings">
+            <button id="calendar-open-wards" class="text-button" type="button"><span data-icon="pin"></span>Phường ưu tiên</button>
+            <p id="calendar-ward-summary" class="helper"></p>
+          </div>
           <div class="calendar-pagination" role="group" aria-label="Khoảng ngày">
             <button id="calendar-prev" class="text-button" type="button" aria-label="Những ngày trước">←</button>
             <p id="calendar-visible-range" aria-live="polite"></p>
@@ -445,6 +450,8 @@
                 <div id="calendar-planning-choices" class="ai-pills" role="group" aria-labelledby="calendar-planning-question">
                   <button id="calendar-planning-other" class="ai-pill" type="button" aria-expanded="false" aria-controls="calendar-planning-custom-field">+ Khác</button>
                 </div>
+                <p id="calendar-planning-previous-area" class="helper" hidden></p>
+                <div id="calendar-planning-wards" hidden></div>
                 <div id="calendar-planning-custom-field" class="field" hidden>
                   <label id="calendar-planning-custom-label" for="calendar-planning-custom"></label>
                   <input id="calendar-planning-custom" type="text" maxlength="120">
@@ -472,6 +479,17 @@
         </aside>
       </div>
     </section>
+
+    <dialog id="calendar-ward-dialog" class="calendar-dialog ward-dialog" aria-labelledby="calendar-ward-title">
+      <div class="calendar-dialog-body">
+        <header class="calendar-panel-heading">
+          <h2 id="calendar-ward-title" tabindex="-1">Phường ưu tiên</h2>
+          <button id="calendar-close-wards" class="text-button" type="button">Đóng</button>
+        </header>
+        <div id="calendar-manual-wards"></div>
+        <footer><button id="calendar-save-wards" class="primary-button" type="button">Xác nhận</button></footer>
+      </div>
+    </dialog>
 
     <dialog id="calendar-event-dialog" class="calendar-dialog" aria-labelledby="calendar-event-heading">
       <div class="calendar-dialog-body">

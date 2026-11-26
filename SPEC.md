@@ -4,7 +4,7 @@ Tài liệu dùng để triển khai và nghiệm thu. Trạng thái code của 
 
 ## 1. Mục tiêu và phạm vi
 
-Giúp khách Việt khám phá món ăn, hoạt động, địa điểm và sự kiện ở Hà Nội, rồi lập lịch trước chuyến đi. Khách có thể hoàn thành toàn bộ hành trình bằng thao tác thủ công hoặc sử dụng AI bất kỳ lúc nào trong chuyến. Thiết kế ưu tiên điện thoại, gợi cảm giác cẩm nang đi bộ Hà Nội. Prototype bắt đầu với khoảng 10 địa điểm demo quanh Hồ Gươm và Phố cổ. Đi bộ là phương tiện tính được trong phạm vi ban đầu. Giao diện cần thể hiện phạm vi dữ liệu và phương tiện được hỗ trợ.
+Giúp khách Việt khám phá món ăn, hoạt động, địa điểm và sự kiện ở Hà Nội, rồi lập lịch trước chuyến đi. Khách có thể hoàn thành toàn bộ hành trình bằng thao tác thủ công hoặc sử dụng AI bất kỳ lúc nào trong chuyến. Thiết kế ưu tiên điện thoại, gợi cảm giác cẩm nang đi bộ Hà Nội. Prototype dùng một tập nhỏ địa điểm demo quanh Hồ Gươm, Phố cổ và Cửa Nam. Đi bộ là phương tiện tính được trong phạm vi ban đầu. Giao diện cần thể hiện phạm vi dữ liệu và phương tiện được hỗ trợ.
 
 ## 2. Chuyến đi và đầu vào
 
@@ -21,6 +21,14 @@ Home, My Projects và Library dùng thanh điều hướng chung trên đầu tr
 
 Lưu một trải nghiệm ghi nhận ý muốn thử. Lưu một địa điểm ghi nhận nơi cụ thể. Hai danh sách lưu riêng và có thể giữ mục khi chuyến chưa có thời gian. Khách chọn một địa điểm cụ thể trước khi đưa trải nghiệm vào lịch. Khi chọn Thêm vào lịch, giữ địa điểm và chuyến đã chọn qua các bước còn thiếu. Tạo một lượt mới hoặc gắn địa điểm vào sự kiện hiện có tùy điểm bắt đầu của thao tác.
 
+### Phường hành chính và bản đồ
+
+II.5 mở ba phường trung tâm: Hoàn Kiếm (00070), Cửa Nam (00082) và Ba Đình (00004). Tên và mã theo [Nghị quyết 1656/NQ-UBTVQH15](https://congbao.chinhphu.vn/tai-ve-van-ban-so-1656-nq-ubtvqh15-45110-56820?format=pdf) và [Quyết định 19/2025/QĐ-TTg](https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2025/6/45430/57438-1-2025919-92019-2025-qd-ttg.pdf), áp dụng từ 01/07/2025. Hồ Gươm và Phố cổ tiếp tục là nhãn khu vực du lịch của Library và dữ liệu chuyến cũ. Không tự chuyển nhãn du lịch thành phường.
+
+Bản đồ dùng [dữ liệu OpenStreetMap theo ODbL](https://www.openstreetmap.org/copyright), tải ngày 26/11/2026. Tệp `public/assets/hanoi-wards.geojson` lưu các vòng biên ghép từ đoạn biên trong ba quan hệ, giữ nguyên tọa độ WGS84. Nguồn từng phường là [Hoàn Kiếm, quan hệ 19331651 phiên bản 13](https://www.openstreetmap.org/relation/19331651), [Cửa Nam, quan hệ 19331653 phiên bản 15](https://www.openstreetmap.org/relation/19331653) và [Ba Đình, quan hệ 19331652 phiên bản 16](https://www.openstreetmap.org/relation/19331652). Các đoạn được cập nhật lần lượt đến 24/11, 24/11 và 21/11/2026. Tệp có thể tải lại độc lập, dùng làm bản đồ tham khảo. Khi hình học không tải được, danh sách tên và chi tiết vẫn dùng được.
+
+Phường của các mục demo Hoàn Kiếm được đối chiếu bằng tọa độ với ba vùng này. Với các mục trải dài như chợ đêm hoặc dạo hồ, phường tương ứng với điểm ghé demo. Ví dụ kiểm chứng độc lập gồm [Đền Ngọc Sơn trong kế hoạch 37/KH-UBND](https://datafiles.hanoi.gov.vn/gov-hni/6249/VanBan/2026/1/26/KH-37-2026.pdf) và [Chợ Đồng Xuân trong phụ lục kế hoạch cải tạo chợ](https://datafiles.hanoi.gov.vn/gov-hni/6244/VanBan/2026/3/23/PL2KH-116-2026.pdf). Phường Cửa Nam có Nhà hát Lớn Hà Nội tại số 1 Tràng Tiền, đối chiếu [văn bản của Sở Văn hóa và Thể thao](https://sovhtt.hanoi.gov.vn/wp-content/uploads/2025/07/cv-2935-svhtt-qlnt.pdf). Mục này dùng thời lượng demo để tham quan bên ngoài, giá và giờ mở cửa để trống. Ba Đình chưa có mục demo đã xác minh. Kem Tràng Tiền chưa gán phường vì mục Library cũ chưa ghi chi nhánh. Chi tiết phường chỉ liên kết tới các mục Library có căn cứ.
+
 ## 4. Hỏi ý kiến AI và Lập lịch cùng AI
 
 Hai công cụ chạy bằng dữ liệu demo trong trình duyệt, không gọi API. Desktop mở một panel bên phải lịch tại một thời điểm. Trên màn hình hẹp, panel mở toàn màn hình và khi đóng trả về đúng chuyến, ngày đang xem và nút đã mở công cụ.
@@ -31,7 +39,11 @@ Hội thoại tự do lưu theo từng chuyến. Câu hỏi tư vấn, kể cả
 
 ### Lập lịch cùng AI
 
-Dùng thời gian chuyến đã chọn. Mỗi bước hiển thị một câu hỏi, tiến độ và giá trị đã có để sửa. Vibe và khu vực có thể chọn nhiều mục. Với câu mở, nhập qua + Khác và giữ các lựa chọn đã chọn. Bấm Xác nhận để đi tiếp, Quay lại để sửa, hoặc Bỏ qua ở bước tùy chọn. Tiến độ và câu trả lời lưu riêng theo chuyến, kể cả khi chuyển công cụ hoặc tải lại.
+Dùng thời gian chuyến đã chọn. Mỗi bước hiển thị một câu hỏi, tiến độ và giá trị đã có để sửa. Vibe có thể chọn nhiều mục. Câu hỏi phường dùng chung bộ chọn với mục Phường ưu tiên trong lịch nháp. Với câu mở, nhập qua + Khác và giữ các lựa chọn đã chọn. Bấm Xác nhận để đi tiếp, Quay lại để sửa, hoặc Bỏ qua ở bước tùy chọn. Tiến độ và câu trả lời lưu riêng theo chuyến, kể cả khi chuyển công cụ hoặc tải lại.
+
+Trong bộ chọn, mở tên hoặc vùng trên bản đồ để xem chi tiết. Nút Ưu tiên phường này thêm phường, mỗi pill có thể bỏ riêng. Không ưu tiên khu vực xóa lựa chọn hiện tại. Trong câu hỏi AI, lựa chọn tự lưu như câu trả lời và chỉ Xác nhận mới sang bước kế. Trong tùy chỉnh chuyến, Xác nhận lưu lựa chọn. Lưu sở thích chỉ cập nhật chuyến đang mở, giữ nguyên cả lịch nháp lẫn bản chốt. Lựa chọn mới thay quyền ưu tiên của nhãn du lịch cũ mà vẫn giữ khả năng đọc dữ liệu cũ.
+
+Chat và bộ lập lịch đẩy ứng viên thuộc bất kỳ phường đã chọn lên trước trong nhóm phù hợp với yêu cầu. Nếu thiếu điểm phù hợp hoặc không thể xếp theo khung giờ và điều kiện lịch, có thể dùng điểm ngoài các phường ưu tiên và nêu lý do. Giờ mở cửa thường chỉ để tham khảo.
 
 Chỉ nút cuối Tạo lịch nháp hoặc Cập nhật lịch nháp bắt đầu xếp. Đọc nháp mới nhất và kiểm tra bằng bộ tính lịch thủ công trước khi ghi. Giữ sự kiện tự tạo, ưu tiên gắn địa điểm phù hợp vào sự kiện chưa có nơi, giữ ID và giờ nếu vừa. Báo sự kiện mới, địa điểm đã gắn và nhu cầu chưa xếp được. Xác nhận lặp lại cho cùng lượt chỉ trả kết quả đã có. Có thể hoàn tác lần lập lịch vừa áp dụng. Bản chốt chỉ thay khi khách chốt lại.
 
@@ -70,7 +82,8 @@ Ghi số lượt, token vào/ra và chi phí ước tính theo tác vụ gợi �
 | Chuyến đã lưu từ trước | Hiện các lượt ở giờ đã tính. Sau khi sửa và tải lại, thấy cùng một lịch. Chuyến khác giữ nguyên. |
 | Hỏi ý kiến AI | Câu tư vấn có chữ “thêm” giữ nguyên nháp. Lệnh đủ thông tin ghi đúng sự kiện nếu hợp lệ. Giữ hội thoại theo chuyến và cho hoàn tác. |
 | Lập lịch cùng AI | Sửa câu trả lời rồi tải lại tiếp tục đúng bước. Xác nhận cuối áp dụng một lần trên nháp mới nhất. Giữ sự kiện thủ công và bản chốt. |
-| Hai phường ưu tiên và chọn một món | Gợi ý điểm thực hiện món đó theo dữ liệu. Một lịch hợp lệ có thể chỉ ghé một trong hai phường. |
+| Hai chuyến với hai phường ưu tiên | Cùng yêu cầu Chụp ảnh, Hoàn Kiếm và Cửa Nam xếp các điểm khác nhau lên đầu. Khi chọn Ba Đình và chưa có điểm phù hợp, nêu lý do và đề xuất ngoài phường. |
+| Chọn phường và quay lại | Xem phường thứ ba không làm đổi lựa chọn. Bỏ riêng một phường, tải lại, quay lại bước cũ và kiểm tra chuyến khác cùng bản chốt. |
 | Đính kèm cùng thẻ với ba câu lệnh | Hỏi chỉ trả lời. Cân nhắc cho xem tác động. Lệnh thêm rõ ràng cập nhật đúng nháp nếu hợp lệ. |
 | Sửa lịch trong lúc AI đang xử lý | Đề xuất cũ không đưa điểm vừa bỏ trở lại. Đổi tên đơn thuần vẫn cho áp dụng. Chuyến khác không bị tác động. |
 | Thiếu giá, thiếu giờ hoặc API lỗi | Giờ mở cửa là tham khảo. Tổng tiền thể hiện phần thiếu. Khách tiếp tục tự xếp. |

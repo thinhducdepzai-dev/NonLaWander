@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { calendarCommand, calendarCosts, calendarLegs, calendarOf, dayCount, openingNote, travelEstimate, wallMinute } from '../public/calendar.js';
 import { calendarDemoReply, parseCalendarMessage } from '../public/calendar-ai.js';
+import { planCalendarDraft, planningForm } from '../public/calendar-planning.js';
+import { placeWard, wardLibrary, wards } from '../public/wards.js';
 import { exampleDraft, placeById } from '../public/data.js';
 import { createPlan, inspectPlan, prepareRequest, walkMinutes } from '../public/planner.js';
 import { createTripStore, hasDraftChanges, tripStoragePrefix } from '../public/trips.js';
@@ -292,4 +295,82 @@ test('chat distinguishes an action from a prohibition before writing the saved d
       }
     });
   }
+});
+
+test('ward preferences persist by trip and preserve the calendar and confirmed snapshot', () => {
+  const storage = browserStorage();
+  const store = createTripStore(storage);
+  const { id } = configuredTrip(store);
+  const other = configuredTrip(store);
+  store.changeCalendar(id, { type: 'create', event: lunch });
+  const before = store.confirm(id);
+  store.setTripWards(other.id, ['00004']);
+  store.setTripWards(id, ['00070', '00082', '00070', 'lake']);
+  assert.deepEqual(store.get(id).wardIds, ['00070', '00082']);
+  store.setTripWards(id, ['00082']);
+  const reopened = createTripStore(storage);
+  assert.deepEqual(reopened.get(id).wardIds, ['00082']);
+  assert.deepEqual(reopened.get(other.id).wardIds, ['00004']);
+  assert.deepEqual(reopened.get(id).draft, before.draft);
+  assert.deepEqual(reopened.get(id).confirmed, before.confirmed);
+  assert.equal(hasDraftChanges(reopened.get(id)), false);
+});
+
+test('legacy tourism areas remain readable and selecting no ward clears their ranking priority', () => {
+  const storage = browserStorage();
+  const store = createTripStore(storage);
+  const { id, draft } = configuredTrip(store);
+  store.saveDraft(id, { ...draft, form: { ...draft.form, areas: ['lake'] } });
+  const legacy = store.get(id);
+  assert.deepEqual(legacy.draft.form.areas, ['lake']);
+  assert.equal(legacy.wardIds, undefined);
+  assert.deepEqual(planningForm(legacy).answers.area.ids, ['lake']);
+  store.setTripWards(id, []);
+  const updated = createTripStore(storage).get(id);
+  assert.deepEqual(updated.draft.form.areas, ['lake']);
+  assert.deepEqual(planningForm(updated).answers.area, { ids: [], custom: '', wardIds: [] });
+});
+
+test('the same request ranks different Library entries by ward in chat and scheduling', () => {
+  const store = createTripStore(browserStorage());
+  const first = configuredTrip(store);
+  const second = configuredTrip(store);
+  store.setTripWards(first.id, ['00070']);
+  store.setTripWards(second.id, ['00082']);
+  for (const [tripId, wardId] of [[first.id, '00070'], [second.id, '00082']]) {
+    const trip = store.get(tripId);
+    const calendar = calendarOf(trip.draft);
+    const response = calendarDemoReply('Gợi ý chụp ảnh', calendar, undefined, { wardIds: trip.wardIds });
+    assert.equal(placeWard(response.choices[0]).id, wardId);
+    const answers = planningForm(trip).answers;
+    answers.idea = { ids: ['chup-anh'], custom: '' };
+    const draft = planCalendarDraft(calendar, answers);
+    assert.equal(placeWard(draft.calendar.events[0].placeId).id, wardId);
+  }
+  const response = calendarDemoReply('Gợi ý chụp ảnh', blank, undefined, { wardIds: ['00004'] });
+  assert.ok(response.choices.length > 0);
+  assert.match(response.reply, /ngoài các phường ưu tiên/);
+  const answers = planningForm(store.setTripWards(first.id, ['00004'])).answers;
+  answers.idea = { ids: ['chup-anh'], custom: '' };
+  const outside = planCalendarDraft(blank, answers);
+  assert.ok(outside.added.length);
+  assert.match(outside.notes.join(' '), /ngoài các phường ưu tiên/);
+});
+
+test('the three ward boundaries contain every assigned Library point', () => {
+  const data = JSON.parse(readFileSync(new URL('../public/assets/hanoi-wards.geojson', import.meta.url), 'utf8'));
+  assert.deepEqual(data.features.map(({ id }) => id), wards.map(({ id }) => id));
+  for (const feature of data.features) {
+    const [ring] = feature.geometry.coordinates[0];
+    assert.deepEqual(ring[0], ring.at(-1));
+    for (const { id, lon, lat } of wardLibrary(feature.id).places) {
+      let inside = false;
+      for (let i = 1; i < ring.length; i++) {
+        const [[x1, y1], [x2, y2]] = ring.slice(i - 1, i + 1);
+        if ((y1 > lat) !== (y2 > lat) && lon < x1 + (x2 - x1) * (lat - y1) / (y2 - y1)) inside = !inside;
+      }
+      assert.ok(inside, id);
+    }
+  }
+  assert.equal(placeWard('trang-tien'), undefined);
 });
