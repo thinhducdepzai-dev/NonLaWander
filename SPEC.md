@@ -8,55 +8,52 @@ Giúp khách Việt khám phá món ăn, hoạt động, địa điểm và sự
 
 ## 2. Chuyến đi và đầu vào
 
-Từ Lịch của tôi, chọn Tạo chuyến đi để mở một chuyến trống có tên mặc định. Cho đổi tên bất kỳ lúc nào. Người dùng có thể lưu trải nghiệm trước khi biết ngày đi. Mỗi chuyến có lịch trình, mục đã lưu, thông tin chuyến và panel AI riêng.
+Tạo chuyến từ Home hoặc My Projects. Mỗi chuyến có một lịch theo giờ, các mục đã lưu, một cuộc trò chuyện và tiến độ lập lịch AI riêng. Mỗi bước mở chuyến có một quyết định.
 
-| Đầu vào | Cách sử dụng |
-|---|---|
-| Ngày đến/rời, các buổi sáng, chiều, tối | Từng ngày cho chọn nhiều buổi hoặc bỏ cả ngày. Mỗi buổi có giờ bắt đầu/kết thúc mặc định sửa được. Khi xếp lịch cần có buổi đích hợp lệ. |
-| Số người và ngân sách | Nhập số người nguyên dương. Ngân sách mỗi người dành cho toàn chuyến. Khoản chi theo nhóm tính một lần rồi chia cho số người. |
-| Vibe, món, hoạt động, địa điểm | Gợi ý đặc sản và cho nhập nhu cầu riêng. Địa điểm đích danh là tùy chọn, được ưu tiên và có phản hồi nếu chưa xếp được. |
-| Phường ưu tiên | Chọn được nhiều phường trên bản đồ. Làm đậm phường đã chọn và cho xem đặc điểm, món ăn, hoạt động. Dùng để ưu tiên ứng viên. |
-| Phương tiện, xuất phát | Tính di chuyển theo phương tiện được hỗ trợ. Khi chưa có điểm xuất phát, ghi rõ thời gian di chuyển được tính từ điểm ghé đầu tiên. |
+1. Chọn ngày và giờ bắt đầu, kết thúc theo giờ Hà Nội. Kết thúc phải sau bắt đầu. Giữ dữ liệu đã nhập và bước hiện hành khi tải lại.
+2. Chọn Tự xếp lịch hoặc Nhờ AI lập lịch. Cả hai mở cùng lịch nháp trống. Lựa chọn thứ hai mở ngay công cụ Lập lịch cùng AI. Cho quay lại sửa thời gian trước khi chọn cách lập lịch. Chuyến đã thiết lập mở thẳng vào lịch.
 
-Các nhóm lựa chọn có chỗ nhập yêu cầu riêng. Nếu phiên bản đang chạy chỉ lưu phần nhập tự do, giao diện phải nêu rõ mức xử lý đó.
+Khách có thể đổi tên chuyến và lưu địa điểm hoặc trải nghiệm trước khi có ngày. Số người là số nguyên dương, mặc định 1 khi chưa có giá trị. Ngân sách ₫/người áp dụng cho cả chuyến. Lập lịch cùng AI dùng thời gian đã chọn và thu thập số người, vibe, món/hoạt động, khu vực, ngân sách mỗi người, phương tiện và các địa điểm muốn ghé. Chat tiếp nhận câu hỏi tự do về chuyến. Đi bộ là phương tiện hiện có dữ liệu để tính.
 
 ## 3. Khám phá và thư viện
 
-Thư viện là mục riêng trên sidebar/bottom navigation, đồng thời có thể mở cạnh lịch trong chuyến. Danh mục gồm Ăn uống, Thể thao, Vui chơi & tham quan, Sự kiện. Ăn uống có bộ lọc như món đặc sản, nhà hàng, quán vỉa hè và cà phê. Sự kiện có thể xem theo ngày chuyến đi.
+Home, My Projects và Library dùng thanh điều hướng chung trên đầu trang. Trong chuyến, Thư viện mở cạnh lịch trên desktop và có lối quay về lịch trên màn hình hẹp. Khách tìm bằng từ khóa tiếng Việt có hoặc không dấu. Dữ liệu demo cho biết khu vực, giá, thời lượng và giờ mở cửa khi có.
 
-Một trải nghiệm có thể thực hiện ở nhiều nơi. Lưu “cà phê trứng” ghi nhận ý thích. Lưu một quán ghi nhận địa điểm cụ thể. Lưu một mục vào chuyến và thêm mục đó vào lịch là hai thao tác riêng. Trang chi tiết thể hiện đặc trưng, khu vực, món/hoạt động, khoảng giá và giờ mở cửa khi có dữ liệu. Thông tin về bàn ngồi nằm ngoài tiêu chí gợi ý. Sự kiện có ngày giờ xác định để kiểm tra tính khả thi.
+Lưu một trải nghiệm ghi nhận ý muốn thử. Lưu một địa điểm ghi nhận nơi cụ thể. Hai danh sách lưu riêng và có thể giữ mục khi chuyến chưa có thời gian. Khách chọn một địa điểm cụ thể trước khi đưa trải nghiệm vào lịch. Khi chọn Thêm vào lịch, giữ địa điểm và chuyến đã chọn qua các bước còn thiếu. Tạo một lượt mới hoặc gắn địa điểm vào sự kiện hiện có tùy điểm bắt đầu của thao tác.
 
-Cho đính kèm thẻ trải nghiệm hoặc địa điểm vào chat. Đính kèm chỉ cung cấp ngữ cảnh. Ví dụ “quán này có gì hay?” mở trao đổi, còn “thêm quán này vào chiều thứ Bảy” yêu cầu chỉnh lịch.
+## 4. Hỏi ý kiến AI và Lập lịch cùng AI
 
-## 4. Gợi ý bằng AI
+Hai công cụ chạy bằng dữ liệu demo trong trình duyệt, không gọi API. Desktop mở một panel bên phải lịch tại một thời điểm. Trên màn hình hẹp, panel mở toàn màn hình và khi đóng trả về đúng chuyến, ngày đang xem và nút đã mở công cụ.
 
-1. Lấy ứng viên từ thư viện theo yêu cầu. Món cụ thể lấy nơi có món đó. Vibe rộng lấy từ nhiều nhóm phù hợp. Ưu tiên phường đã chọn và xét ngày của sự kiện.
-2. Mỗi lượt gợi ý thông thường gọi LLM một lần với câu gốc, ngữ cảnh cần thiết của chuyến đang mở và danh sách ứng viên ngắn. Yêu cầu trả ID và lý do dựa trên dữ liệu. Khách chưa biết muốn gì có thể được gợi ý vài kiểu đi chơi.
-3. Kiểm tra ID thuộc tập ứng viên và hiển thị lý do giúp khách lựa chọn. Một địa điểm phù hợp là đủ nếu dữ liệu chỉ có một. “Gợi ý cho tôi” hiển thị lựa chọn. “Lên lịch giúp tôi” chuyển ứng viên được đề xuất sang bộ xếp lịch.
-4. Khi không có ứng viên phù hợp trong khu vực, nêu giới hạn dữ liệu. Nếu có lựa chọn ở khu vực khác thì ghi rõ. Khi AI lỗi, giữ nội dung đã nhập và cho thử lại hoặc tiếp tục tự xếp.
+### Hỏi ý kiến AI
 
-## 5. Tạo lịch
+Hội thoại tự do lưu theo từng chuyến. Câu hỏi tư vấn, kể cả câu có chữ “thêm”, chỉ nhận câu trả lời. Lệnh rõ về một đối tượng có thể cập nhật nháp sau khi bộ tính lịch xác nhận hợp lệ. Hỏi lại khi thiếu tên nơi, ngày, giờ hoặc có nhiều đối tượng phù hợp. Khi xung đột, nêu lý do và giữ nháp. Khi ghi thành công, nêu thay đổi và cho hoàn tác. Đề xuất dùng để cân nhắc giữ cách xem trước và kiểm tra lại lịch trước khi ghi.
 
-Khách kéo thẻ từ thư viện vào đúng ngày, buổi và vị trí, hoặc dùng nút Thêm vào lịch trên điện thoại. Thẻ trải nghiệm cần chọn nơi thực hiện trước khi trở thành điểm ghé. Tuyến do AI gợi ý và tuyến thủ công dùng chung bộ tính lịch.
+### Lập lịch cùng AI
 
-Thử một số hữu hạn phương án bằng code. Tôn trọng thứ tự khách yêu cầu, tính thời lượng ghé và thời gian di chuyển giữa hai điểm, dùng sự kiện giờ cố định làm mốc. Giờ kết thúc buổi là giới hạn trên. Có thể kết thúc sớm. Giờ mở cửa thông thường dùng để tham khảo. Kiểm tra ngân sách trên toàn chuyến. Khoản chưa có giá phải hiển thị riêng, ví dụ “đã tính 180.000đ/người, còn một điểm chưa có giá”.
+Dùng thời gian chuyến đã chọn. Mỗi bước hiển thị một câu hỏi, tiến độ và giá trị đã có để sửa. Vibe và khu vực có thể chọn nhiều mục. Với câu mở, nhập qua + Khác và giữ các lựa chọn đã chọn. Bấm Xác nhận để đi tiếp, Quay lại để sửa, hoặc Bỏ qua ở bước tùy chọn. Tiến độ và câu trả lời lưu riêng theo chuyến, kể cả khi chuyển công cụ hoặc tải lại.
 
-Trả một lịch chính, nhóm theo ngày và buổi. Mỗi điểm hiện giờ đến, thời lượng, chi phí và chặng tới điểm kế tiếp. Tóm tắt buổi bằng số điểm, thời gian di chuyển và chi phí. Chỉ xếp được một phần thì trả phần đã có và lý do phần còn thiếu. Cho thử lại riêng buổi đó với ngân sách còn lại, bảo toàn các buổi khác.
+Chỉ nút cuối Tạo lịch nháp hoặc Cập nhật lịch nháp bắt đầu xếp. Đọc nháp mới nhất và kiểm tra bằng bộ tính lịch thủ công trước khi ghi. Giữ sự kiện tự tạo, ưu tiên gắn địa điểm phù hợp vào sự kiện chưa có nơi, giữ ID và giờ nếu vừa. Báo sự kiện mới, địa điểm đã gắn và nhu cầu chưa xếp được. Xác nhận lặp lại cho cùng lượt chỉ trả kết quả đã có. Có thể hoàn tác lần lập lịch vừa áp dụng. Bản chốt chỉ thay khi khách chốt lại.
+
+## 5. Lịch theo giờ
+
+Một ngày một cột trên desktop. Chuyến 2–7 ngày hiện các ngày của chuyến. Chuyến dài hơn chia trang tối đa bảy ngày, có nhãn khoảng ngày và nút trước/sau. Mobile hiện một ngày và dải chọn ngày. Làm mờ phần ngày đầu/cuối nằm ngoài khung chuyến. Chỉ ghi sự kiện trong khung hợp lệ.
+
+Thanh công cụ chuyến gồm Tạo sự kiện, Thư viện, Hỏi ý kiến AI và Lập lịch cùng AI, ở bên trái trên desktop. Tạo bằng nút hoặc kéo chọn giờ. Sự kiện có tên, danh mục, giờ bắt đầu và kết thúc với thời lượng dương. Danh mục gồm Tham quan, Ăn uống, Cà phê, Giải trí, Di chuyển, Nghỉ ngơi và Khác. Vị trí là tùy chọn. Khách có thể tạo “Ăn trưa” trước rồi gắn quán, giữ ID và khung giờ khi vừa. Nếu chưa vừa, hiển thị tác động và xin xác nhận trước khi đổi giờ.
+
+Di chuyển là sự kiện có khung giờ đi lại riêng. Cho nhập điểm đi và điểm đến nếu biết. Với hai lượt ghé và một sự kiện Di chuyển trùng chặng, dùng thời gian đã dành cho chặng một lần. Chặng đi bộ ước tính giữa hai nơi dùng dữ liệu hiện có. Thời gian ước tính để ở trạng thái chưa xác định khi thiếu hai đầu chặng.
+
+Chi phí mỗi người và cả nhóm dùng cùng chi phí lượt ghé. Ghi số người, số lượt chưa biết giá và phân biệt miễn phí. Khách tự sửa số người hoặc ngân sách ngay cạnh phần tổng kết chi phí. Giờ mở cửa thường là cảnh báo. Giờ sự kiện cố định là mốc kiểm tra. Chuyến cũ đưa các lượt ghé lên lịch theo chính ngày giờ đã tính.
 
 ## 6. Chỉnh lịch và quyền thao tác của AI
 
-| Ý định | Hành vi |
-|---|---|
-| Hỏi thông tin | Trả lời trong chat. |
-| Cân nhắc thêm hoặc đổi | Mô phỏng tác động về thời gian và chi phí. Người dùng quyết định áp dụng. |
-| Lệnh rõ, sửa một điểm và không có xung đột | Áp dụng vào nháp, hỗ trợ hoàn tác. Nếu đối tượng mơ hồ thì hỏi đúng chi tiết còn thiếu. |
-| Sửa cả buổi hoặc xảy ra xung đột | Cho xem trước, chỉ rõ điểm cần dời và lựa chọn xử lý. Chờ người dùng quyết định. |
+Menu mỗi sự kiện có Sửa, Đổi ngày/giờ, Nhân bản và Xóa. Desktop cho kéo thẻ sang ngày/giờ khác, kéo mép để thay thời lượng và xem trước giờ khi kéo. Bàn phím và cảm ứng dùng biểu mẫu tương đương. Nhân bản sinh ID mới. Hoàn tác tác động vào chuyến hiện hành.
 
-Hỗ trợ thêm, bỏ, thay, đổi thứ tự. Chỉ tính lại các chặng liên quan, giờ các điểm chịu ảnh hưởng và tổng chi phí. Buổi khác được giữ nguyên. Nếu khách sửa nội dung liên quan trong khi AI đang xử lý, phải cập nhật đề xuất theo lịch mới trước khi áp dụng. Đổi tên chuyến không ảnh hưởng đề xuất lịch. Phạm vi kết thúc ở chuẩn bị trước chuyến đi.
+Thao tác tay và demo dùng cùng bộ lệnh tạo, sửa, gắn hoặc thay địa điểm, dời, đổi thời lượng, nhân bản và xóa. Kiểm tra sự kiện trùng nhau, phạm vi chuyến, ngân sách, thời lượng ghé, chặng đi và mốc cố định trước khi ghi. Nếu từ chối, nêu xung đột và giữ dữ liệu cũ. Khi áp dụng đề xuất, kiểm tra lại nháp mới nhất. Thay đổi dữ liệu liên quan yêu cầu duyệt lại. Đổi tên chuyến không làm mất hiệu lực của đề xuất.
 
 ## 7. Lưu và mở lại
 
-Bản test tự lưu trên trình duyệt, ghi rõ phạm vi lưu. Tự lưu nháp sau mỗi thay đổi đã áp dụng. Đề xuất AI đang xem không ghi đè lịch. Khi Chốt lịch, lưu phiên bản đã chốt vào Lịch của tôi. Sửa tiếp từ phiên bản đó tạo nháp riêng. Chỉ cập nhật bản đã chốt khi khách chọn Cập nhật lịch đã chốt. Cho phép đổi tên mặc định. Mở lại phục hồi đúng lịch đã lưu. Đăng nhập và lưu theo tài khoản thuộc giai đoạn sau.
+Nháp, cuộc trò chuyện và tiến độ lập lịch AI tự lưu trên trình duyệt. Đề xuất đang chờ không sửa lịch. Chốt lịch giữ phiên bản theo giờ cùng số người và giá tại thời điểm chốt. Các chỉnh sửa sau đó chỉ ghi nháp. Chỉ thao tác Cập nhật lịch đã chốt mới thay bản chốt. Đăng nhập và lưu theo tài khoản thuộc giai đoạn sau.
 
 ## 8. Ngân sách OpenAI khi deploy thử
 
@@ -68,8 +65,11 @@ Ghi số lượt, token vào/ra và chi phí ước tính theo tác vụ gợi �
 
 | Tình huống | Kỳ vọng |
 |---|---|
-| Tắt LLM | Tạo chuyến trống, tìm địa điểm, thêm ba điểm, kéo thả, đổi thứ tự, đổi tên, lưu, tải lại thành công với 0 lượt gọi. |
-| Ba ngày chỉ chọn hai buổi | Chỉ hai buổi có lịch. Chi phí dùng chung ngân sách. Có thể để thời gian trống cuối buổi. |
+| Luồng thủ công | Tạo chuyến → chọn thời gian → tạo Ăn trưa → dời giờ → gắn quán giữ ID → thêm chặng Di chuyển → tải lại → chốt → sửa nháp. Không phát sinh lượt gọi AI. |
+| Một ngày, ba ngày không trọn và trên bảy ngày | Đúng số cột, dải ngày và phân trang. Phần ngoài khung được làm mờ và không lưu được sự kiện. |
+| Chuyến đã lưu từ trước | Hiện các lượt ở giờ đã tính. Sau khi sửa và tải lại, thấy cùng một lịch. Chuyến khác giữ nguyên. |
+| Hỏi ý kiến AI | Câu tư vấn có chữ “thêm” giữ nguyên nháp. Lệnh đủ thông tin ghi đúng sự kiện nếu hợp lệ. Giữ hội thoại theo chuyến và cho hoàn tác. |
+| Lập lịch cùng AI | Sửa câu trả lời rồi tải lại tiếp tục đúng bước. Xác nhận cuối áp dụng một lần trên nháp mới nhất. Giữ sự kiện thủ công và bản chốt. |
 | Hai phường ưu tiên và chọn một món | Gợi ý điểm thực hiện món đó theo dữ liệu. Một lịch hợp lệ có thể chỉ ghé một trong hai phường. |
 | Đính kèm cùng thẻ với ba câu lệnh | Hỏi chỉ trả lời. Cân nhắc cho xem tác động. Lệnh thêm rõ ràng cập nhật đúng nháp nếu hợp lệ. |
 | Sửa lịch trong lúc AI đang xử lý | Đề xuất cũ không đưa điểm vừa bỏ trở lại. Đổi tên đơn thuần vẫn cho áp dụng. Chuyến khác không bị tác động. |

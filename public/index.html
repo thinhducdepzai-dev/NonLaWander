@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content, viewport-fit=cover">
   <meta name="theme-color" content="#fcfcfb">
   <meta name="description" content="Xếp một lịch đi bộ theo ý bạn quanh Hồ Gươm và Phố cổ Hà Nội.">
   <title>Home · NonLa Wander</title>
@@ -170,26 +170,18 @@
       </div>
       <section id="library-add" class="library-add" aria-labelledby="library-add-title" hidden>
         <h2 id="library-add-title">Thêm vào lịch nháp</h2>
-        <form id="library-add-form">
-          <p id="library-add-trip-context" class="library-add-guidance" hidden></p>
-          <div id="library-add-fields" class="library-add-fields">
-            <div id="library-trip-field" class="field">
-              <label for="library-trip-select">Chuyến đi</label>
-              <select id="library-trip-select"></select>
-            </div>
-            <div id="library-slot-field" class="field">
-              <label for="library-slot-select">Buổi trong bản nháp</label>
-              <select id="library-slot-select"></select>
-            </div>
+        <p id="library-add-trip-context" class="library-add-guidance" hidden></p>
+        <div id="library-add-fields" class="library-add-fields">
+          <div id="library-trip-field" class="field">
+            <label for="library-trip-select">Chuyến đi</label>
+            <select id="library-trip-select"></select>
           </div>
-          <p id="library-add-guidance" class="library-add-guidance" hidden></p>
-          <div id="library-add-feedback" class="error-box" role="alert" tabindex="-1" hidden></div>
-          <div class="library-add-actions">
-            <button type="submit" id="library-add-submit" class="primary-button">Thêm địa điểm</button>
-            <button type="button" id="library-add-create" class="primary-button" hidden>Tạo chuyến đi</button>
-            <a id="library-add-configure" class="back-link" hidden>Thiết lập buổi trong bản nháp</a>
-          </div>
-        </form>
+        </div>
+        <p id="library-add-guidance" class="library-add-guidance"></p>
+        <div class="library-add-actions">
+          <a id="library-add-configure" class="primary-button" hidden>Chọn giờ trong lịch</a>
+          <button type="button" id="library-add-create" class="primary-button" hidden>Tạo chuyến đi</button>
+        </div>
       </section>
       <section id="library-save" class="library-add" aria-labelledby="library-save-title" hidden>
         <h2 id="library-save-title">Lưu để xếp lịch sau</h2>
@@ -258,7 +250,6 @@
       </form>
       <p id="trip-version-guidance" class="helper"></p>
       <div id="trip-library-context" class="trip-library-context" hidden>
-        <p id="trip-library-message" role="status" hidden></p>
         <a id="trip-library-return" class="back-link"></a>
       </div>
       <nav id="version-links" class="version-links" aria-label="Phiên bản lịch" hidden>
@@ -271,6 +262,7 @@
     <section id="trip-saved" class="trip-saved paper-panel" aria-labelledby="trip-saved-title" hidden>
       <div class="trip-saved-heading">
         <h2 id="trip-saved-title" tabindex="-1">Địa điểm đã lưu</h2>
+        <a id="trip-saved-calendar" class="back-link"></a>
         <a id="trip-saved-library" class="back-link">Khám phá Library <span aria-hidden="true">→</span></a>
       </div>
       <p id="trip-saved-empty" class="helper">Tìm một địa điểm trong Library rồi lưu vào chuyến để xếp lịch sau.</p>
@@ -297,202 +289,255 @@
       </template>
     </section>
 
-    <div id="trip-workspace" class="planner-layout" hidden>
-      <section id="planner" aria-labelledby="planner-title">
-        <div class="section-heading">
-          <div class="section-name"><span class="section-icon" data-icon="sliders"></span><h2 id="planner-title">Lên lịch đi chơi</h2></div>
-          <button type="button" id="load-example" class="text-button"><span data-icon="sparkles"></span>Lịch mẫu</button>
-        </div>
-        <button type="button" id="trip-library-resume" class="text-button" hidden></button>
-
-        <form id="trip-form" novalidate>
-          <div id="form-errors" class="error-box" tabindex="-1" hidden></div>
-
-          <section class="paper-panel" aria-labelledby="dates-title">
-            <h3 id="dates-title"><span data-icon="calendar"></span>Ngày ở Hà Nội</h3>
-            <div class="dates">
-              <div class="field">
-                <label for="arrival">Ngày đến</label>
-                <input id="arrival" type="date" name="startDate" required aria-describedby="error-arrival">
-                <p class="field-error" id="error-arrival" hidden></p>
+    <section id="hourly-workspace" hidden aria-label="Lập lịch theo giờ">
+      <section id="calendar-setup" class="calendar-onboarding" hidden aria-labelledby="calendar-setup-title">
+        <h1 id="calendar-setup-title" tabindex="-1">Chuyến đi của bạn diễn ra khi nào?</h1>
+        <p class="helper">Giờ Hà Nội (UTC+7)</p>
+        <form id="calendar-range-form" novalidate>
+          <div class="calendar-range-fields">
+            <fieldset class="field">
+              <legend>Bắt đầu</legend>
+              <div class="calendar-date-time">
+                <label>Ngày <input type="date" name="startDate" required aria-describedby="calendar-start-error"></label>
+                <label>Giờ <input type="time" name="startTime" required aria-describedby="calendar-start-error"></label>
               </div>
-              <div class="field">
-                <label for="departure">Ngày rời</label>
-                <input id="departure" type="date" name="endDate" required aria-describedby="error-departure">
-                <p class="field-error" id="error-departure" hidden></p>
+              <p class="field-error" id="calendar-start-error" role="alert"></p>
+            </fieldset>
+            <fieldset class="field">
+              <legend>Kết thúc</legend>
+              <div class="calendar-date-time">
+                <label>Ngày <input type="date" name="endDate" required aria-describedby="calendar-end-error"></label>
+                <label>Giờ <input type="time" name="endTime" required aria-describedby="calendar-end-error"></label>
               </div>
-            </div>
-          </section>
-
-          <section class="paper-panel sessions" aria-labelledby="sessions">
-            <div class="panel-heading">
-              <h3 id="sessions" tabindex="-1" aria-describedby="error-sessions"><span data-icon="clock"></span>Buổi muốn đi chơi</h3>
-              <span id="slot-count" class="chip-count"></span>
-            </div>
-            <p class="helper">Chọn buổi bạn rảnh và sửa giờ nếu cần. Để trống nếu muốn nghỉ cả ngày.</p>
-            <p class="field-error" id="error-sessions" hidden></p>
-            <div id="day-list"></div>
-          </section>
-
-          <section class="paper-panel preferences" aria-labelledby="preferences-title">
-            <h3 id="preferences-title"><span data-icon="compass"></span>Chuyến đi hợp gu</h3>
-            <p class="helper">Yêu cầu riêng được lưu cùng form trên thiết bị. Bản demo chưa dùng phần chữ tự do để xếp lịch.</p>
-
-            <fieldset>
-              <legend>Vibe bạn thích</legend>
-              <div class="option-list" id="vibes-options"></div>
-              <div data-note="vibes" data-label="gu đi chơi"></div>
+              <p class="field-error" id="calendar-end-error" role="alert"></p>
             </fieldset>
-
-            <fieldset>
-              <legend>Khu vực ưu tiên</legend>
-              <div class="option-list" id="areas-options"></div>
-              <div data-note="areas" data-label="khu vực"></div>
-            </fieldset>
-
-            <fieldset>
-              <legend>Điểm nhất định muốn ghé</legend>
-              <details class="places-picker" id="places-picker">
-                <summary><span id="places-summary">Chọn địa điểm mẫu</span><span data-icon="chevron"></span></summary>
-                <div class="option-list" id="places-options"></div>
-              </details>
-              <div data-note="mustVisit" data-label="địa điểm"></div>
-            </fieldset>
-
-            <div class="budget-fields">
-              <div class="field">
-                <label for="budget">Ngân sách mỗi người</label>
-                <div class="currency-input">
-                  <input type="number" inputmode="numeric" min="0" step="1" required id="budget" name="budget" aria-describedby="budget-hint error-budget">
-                  <span aria-hidden="true">₫</span>
-                </div>
-                <p id="budget-hint" class="helper">Cho toàn bộ chuyến đi.</p>
-                <p class="field-error" id="error-budget" hidden></p>
-              </div>
-              <div class="field">
-                <label for="participants">Số người tham gia</label>
-                <input type="number" inputmode="numeric" min="1" step="1" required id="participants" name="participants" aria-describedby="error-participants">
-                <p class="field-error" id="error-participants" hidden></p>
-              </div>
-              <div data-note="budget" data-label="ngân sách"></div>
-            </div>
-
-            <fieldset id="transport">
-              <legend>Phương tiện di chuyển</legend>
-              <div class="option-list" id="transport-options"></div>
-              <p class="helper" id="transport-hint">Bản demo tính lịch và thời gian di chuyển theo tuyến đi bộ.</p>
-              <p class="field-error" id="error-transport" hidden></p>
-              <div data-note="transport" data-label="di chuyển"></div>
-            </fieldset>
-          </section>
-
-          <div class="form-actions">
-            <button type="submit" class="primary-button"><span data-icon="route"></span>Xếp lịch đi bộ</button>
           </div>
+          <button class="primary-button" type="submit">Tiếp tục</button>
         </form>
       </section>
-
-      <section id="trip-library-panel" class="paper-panel trip-library" aria-labelledby="trip-library-title" hidden>
-        <div class="trip-library-heading">
-          <h2 id="trip-library-title">Thư viện địa điểm</h2>
-          <button type="button" id="trip-library-close" class="text-button">Đóng</button>
+      <section id="calendar-mode" class="calendar-onboarding" hidden aria-labelledby="calendar-mode-title">
+        <h1 id="calendar-mode-title" tabindex="-1">Bạn muốn lên lịch thế nào?</h1>
+        <div class="calendar-mode-choices">
+          <button type="button" class="text-button" data-calendar-mode="manual"><span data-icon="calendar"></span>Tự xếp lịch</button>
+          <button type="button" class="text-button" data-calendar-mode="ai"><span data-icon="calendar"></span>Nhờ AI lập lịch</button>
         </div>
-        <p class="trip-library-drag-hint">Kéo tay nắm của địa điểm tới cuối buổi trên lịch.</p>
-        <div id="trip-library-picker" class="trip-library-picker">
-          <div class="field">
-            <label for="trip-library-query">Tên địa điểm</label>
-            <input type="search" id="trip-library-query" placeholder="Ví dụ: Cà phê Đinh" autocomplete="off">
-          </div>
-          <div class="field">
-            <label for="trip-library-group">Nhóm địa điểm</label>
-            <select id="trip-library-group"><option value="">Tất cả nhóm</option></select>
-          </div>
-          <p id="trip-library-empty" class="helper" role="status" hidden>Không có địa điểm phù hợp. Hãy thử tên hoặc nhóm khác.</p>
-          <ul id="trip-library-results" class="trip-library-results" role="list"></ul>
+        <p class="helper">Bạn có thể nhờ AI bất cứ lúc nào.</p>
+        <button id="calendar-back-to-time" type="button" class="text-button">Quay lại sửa thời gian</button>
+      </section>
+      <div id="calendar-layout" class="calendar-layout" hidden>
+        <div class="calendar-tools" id="calendar-tools" role="group" aria-label="Công cụ lập lịch">
+          <button id="calendar-create-event" type="button" class="primary-button"><span data-icon="plus"></span>Tạo sự kiện</button>
+          <button id="calendar-open-library" type="button" class="text-button" aria-controls="calendar-library" aria-expanded="false"><span data-icon="book-open"></span>Thư viện</button>
+          <button id="calendar-open-ai" type="button" class="text-button" aria-controls="calendar-ai" aria-expanded="false"><span data-icon="message-circle"></span>Hỏi ý kiến AI</button>
+          <button id="calendar-open-planning" type="button" class="text-button" aria-controls="calendar-planning" aria-expanded="false"><span data-icon="calendar"></span>Lập lịch cùng AI</button>
         </div>
-        <section id="trip-library-selection" class="trip-library-selection" aria-labelledby="trip-library-selected" hidden>
-          <div class="trip-library-selection-heading">
-            <h3 id="trip-library-selected" tabindex="-1"></h3>
-            <button type="button" id="trip-library-change" class="text-button">Chọn điểm khác</button>
-          </div>
-          <form id="trip-library-form">
-            <div id="trip-library-slot-field" class="field">
-              <label for="trip-library-slot">Buổi đích</label>
-              <select id="trip-library-slot" aria-describedby="trip-library-placement"></select>
-              <p id="trip-library-placement" class="helper"></p>
+        <section class="calendar-main" aria-labelledby="calendar-title">
+          <div class="calendar-heading">
+            <div><h2 id="calendar-title" tabindex="-1">Lịch nháp</h2><p id="calendar-range-label" class="helper"></p></div>
+            <div class="calendar-buttons">
+              <button id="calendar-undo" class="text-button" type="button">Hoàn tác</button>
+              <button id="calendar-confirm" class="text-button" type="button">Chốt lịch</button>
             </div>
-            <p id="trip-library-guidance" class="helper" hidden></p>
-            <div id="trip-library-error" class="error-box" role="alert" tabindex="-1" hidden></div>
-            <div class="trip-library-actions">
-              <button type="submit" id="trip-library-submit" class="primary-button">Thêm vào lịch</button>
-              <button type="button" id="trip-library-setup" class="text-button" hidden>Thiết lập buổi</button>
+          </div>
+          <div class="calendar-cost-row">
+            <p id="calendar-costs" class="calendar-costs helper"></p>
+            <details id="calendar-cost-settings">
+              <summary>Chi phí và số người</summary>
+              <form id="calendar-cost-form" class="calendar-cost-form" novalidate>
+                <div class="field"><label for="calendar-participants">Số người tham gia</label><input id="calendar-participants" name="participants" type="number" min="1" step="1" inputmode="numeric" aria-describedby="calendar-cost-error" required></div>
+                <div class="field"><label for="calendar-budget">Ngân sách (₫/người)</label><input id="calendar-budget" name="budget" type="number" min="0" step="1" inputmode="numeric" aria-describedby="calendar-cost-error"></div>
+                <p id="calendar-cost-error" class="field-error" role="alert"></p>
+                <button type="submit" class="text-button">Áp dụng chi phí</button>
+              </form>
+            </details>
+          </div>
+          <div class="calendar-pagination" role="group" aria-label="Khoảng ngày">
+            <button id="calendar-prev" class="text-button" type="button" aria-label="Những ngày trước">←</button>
+            <p id="calendar-visible-range" aria-live="polite"></p>
+            <button id="calendar-next" class="text-button" type="button" aria-label="Những ngày sau">→</button>
+          </div>
+          <div id="calendar-day-picker" class="calendar-day-picker" role="group" aria-label="Chọn ngày"></div>
+          <p id="calendar-feedback" class="error-box" role="alert" tabindex="-1" hidden></p>
+          <p id="calendar-drag-preview" class="calendar-drag-preview" role="status" hidden></p>
+          <div id="calendar-scroll" class="calendar-scroll" tabindex="0" role="region" aria-label="Lịch theo giờ">
+            <div id="calendar-grid"></div>
+          </div>
+          <details id="calendar-legs" class="calendar-legs" hidden>
+            <summary>Chặng di chuyển và giờ mở cửa</summary>
+            <ul id="calendar-leg-list"></ul>
+          </details>
+        </section>
+        <aside id="calendar-library" class="calendar-panel paper-panel" aria-labelledby="calendar-library-title" hidden>
+          <div class="calendar-panel-heading">
+            <h2 id="calendar-library-title" tabindex="-1">Thư viện</h2>
+            <button type="button" class="text-button" data-calendar-close-panel>Quay về lịch</button>
+          </div>
+          <p id="calendar-library-context" class="helper"></p>
+          <a id="calendar-saved-link" class="back-link">Mở mục đã lưu</a>
+          <div class="field">
+            <label for="calendar-library-query">Tìm địa điểm</label>
+            <input id="calendar-library-query" type="search" placeholder="Ví dụ: Cà phê Đinh" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="calendar-library-group">Nhóm địa điểm</label>
+            <select id="calendar-library-group"><option value="">Tất cả nhóm</option></select>
+          </div>
+          <ul id="calendar-library-results" class="calendar-option-list" role="list"></ul>
+          <p id="calendar-library-empty" class="helper" role="status" hidden>Không tìm thấy địa điểm phù hợp.</p>
+        </aside>
+        <aside id="calendar-ai" class="calendar-panel calendar-ai-tool" aria-labelledby="calendar-ai-title" hidden>
+          <header class="ai-tool-header">
+            <h2 id="calendar-ai-title" tabindex="-1"><span data-icon="message-circle"></span>Hỏi ý kiến AI</h2>
+            <button type="button" class="ai-tool-close" aria-label="Đóng Hỏi ý kiến AI, quay về lịch" data-calendar-close-panel><span data-icon="close"></span></button>
+          </header>
+          <div id="calendar-chat-history" class="ai-tool-body" aria-label="Cuộc trò chuyện">
+            <div id="calendar-chat-welcome" class="ai-welcome">
+              <p id="calendar-chat-trip" class="helper"></p>
+              <h3>Bạn muốn khám phá gì?</h3>
+            </div>
+            <ol id="calendar-messages" class="calendar-messages" aria-live="polite"></ol>
+            <section id="calendar-proposal" class="calendar-proposal" aria-labelledby="calendar-proposal-title" hidden>
+              <h3 id="calendar-proposal-title">Xem trước đề xuất</h3>
+              <p id="calendar-proposal-text"></p>
+              <p id="calendar-proposal-error" class="field-error" role="alert" tabindex="-1"></p>
+              <div class="calendar-buttons">
+                <button id="calendar-apply-proposal" class="primary-button" type="button">Áp dụng vào nháp</button>
+                <button id="calendar-dismiss-proposal" class="text-button" type="button">Bỏ đề xuất</button>
+              </div>
+            </section>
+          </div>
+          <div class="ai-tool-footer">
+            <div id="calendar-chat-prompts" class="ai-pills">
+              <button class="ai-pill" type="button">Ăn gì quanh Hồ Gươm?</button>
+              <button class="ai-pill" type="button">Gợi ý một buổi chiều</button>
+            </div>
+            <div id="calendar-chat-context" class="calendar-chat-context" hidden>
+              <p id="calendar-chat-context-name" class="helper"></p>
+              <button id="calendar-clear-context" class="text-button" type="button">Bỏ ngữ cảnh</button>
+            </div>
+            <form id="calendar-message-form" class="ai-composer">
+              <label for="calendar-message" class="sr-only">Nhắn cho AI</label>
+              <textarea id="calendar-message" name="message" rows="1" maxlength="500" placeholder="Nhắn cho AI…" aria-describedby="calendar-chat-demo" required></textarea>
+              <button class="primary-button" type="submit" aria-label="Gửi tin nhắn"><span data-icon="up"></span></button>
+            </form>
+            <p id="calendar-chat-demo" class="ai-demo">AI demo · Dữ liệu Library mẫu</p>
+          </div>
+        </aside>
+        <aside id="calendar-planning" class="calendar-panel calendar-ai-tool" aria-labelledby="calendar-planning-title" hidden>
+          <header class="ai-tool-header">
+            <h2 id="calendar-planning-title" tabindex="-1"><span data-icon="calendar"></span>Lập lịch cùng AI</h2>
+            <button type="button" class="ai-tool-close" aria-label="Đóng Lập lịch cùng AI, quay về lịch" data-calendar-close-panel><span data-icon="close"></span></button>
+          </header>
+          <form id="calendar-planning-form" novalidate>
+            <div id="calendar-planning-body" class="ai-tool-body">
+              <div id="calendar-planning-progress-group" class="ai-progress">
+                <label id="calendar-planning-step" for="calendar-planning-progress"></label>
+                <progress id="calendar-planning-progress" value="1" max="7"></progress>
+              </div>
+              <section id="calendar-planning-controls" aria-labelledby="calendar-planning-question">
+                <h3 id="calendar-planning-question" tabindex="-1"></h3>
+                <p id="calendar-planning-hint" class="helper"></p>
+                <p id="calendar-planning-range" class="helper"></p>
+                <div id="calendar-planning-number-field" class="field">
+                  <label id="calendar-planning-number-label" for="calendar-planning-number"></label>
+                  <input id="calendar-planning-number" type="text" inputmode="numeric" maxlength="16" aria-describedby="calendar-planning-error">
+                </div>
+                <div id="calendar-planning-choices" class="ai-pills" role="group" aria-labelledby="calendar-planning-question">
+                  <button id="calendar-planning-other" class="ai-pill" type="button" aria-expanded="false" aria-controls="calendar-planning-custom-field">+ Khác</button>
+                </div>
+                <div id="calendar-planning-custom-field" class="field" hidden>
+                  <label id="calendar-planning-custom-label" for="calendar-planning-custom"></label>
+                  <input id="calendar-planning-custom" type="text" maxlength="120">
+                </div>
+                <p id="calendar-planning-error" class="field-error" role="alert"></p>
+              </section>
+              <section id="calendar-planning-result" aria-labelledby="calendar-planning-result-title" hidden>
+                <h3 id="calendar-planning-result-title" tabindex="-1"></h3>
+                <ul id="calendar-planning-changes"></ul>
+                <div class="calendar-buttons">
+                  <button id="calendar-planning-undo" class="text-button" type="button">Hoàn tác</button>
+                  <button id="calendar-planning-edit" class="text-button" type="button">Sửa câu trả lời</button>
+                </div>
+              </section>
+            </div>
+            <div class="ai-tool-footer ai-planning-footer">
+              <div id="calendar-planning-actions" class="ai-planning-actions">
+                <button id="calendar-planning-back" class="text-button" type="button">Quay lại</button>
+                <button id="calendar-planning-skip" class="text-button" type="button">Bỏ qua</button>
+                <button id="calendar-planning-submit" class="primary-button" type="submit">Xác nhận</button>
+              </div>
+              <p class="ai-demo">AI demo · Dữ liệu Library mẫu</p>
             </div>
           </form>
-        </section>
-        <p id="trip-library-success" class="trip-library-success" role="status" hidden></p>
-      </section>
+        </aside>
+      </div>
+    </section>
 
-      <section id="itinerary" aria-labelledby="itinerary-title">
-        <div class="section-heading itinerary-heading">
-          <div class="section-name"><span class="section-icon" data-icon="route"></span><h2 id="itinerary-title" tabindex="-1">Lịch nháp</h2></div>
-          <div class="itinerary-actions">
-            <button type="button" id="trip-library-toggle" class="text-button" aria-expanded="false" aria-controls="trip-library-panel" hidden><span data-icon="library"></span><span id="trip-library-toggle-label">Thêm từ thư viện</span></button>
-            <button id="edit-plan" type="button" class="text-button" aria-pressed="false" hidden><span data-icon="edit"></span><span id="edit-label">Chỉnh sửa</span></button>
-            <button id="confirm-plan" type="button" class="text-button" hidden><span data-icon="check"></span><span id="confirm-label">Chốt lịch</span></button>
+    <dialog id="calendar-event-dialog" class="calendar-dialog" aria-labelledby="calendar-event-heading">
+      <div class="calendar-dialog-body">
+        <div class="calendar-panel-heading">
+          <h2 id="calendar-event-heading" tabindex="-1">Tạo sự kiện</h2>
+          <button id="calendar-event-close" class="text-button" type="button">Đóng</button>
+        </div>
+        <div id="calendar-event-info" hidden>
+          <p id="calendar-event-when"></p>
+          <p id="calendar-event-place" class="helper"></p>
+          <div id="calendar-event-actions" class="calendar-event-menu" aria-label="Thao tác sự kiện">
+            <button class="text-button" data-event-action="edit" type="button">Sửa</button>
+            <button class="text-button" data-event-action="move" type="button">Đổi ngày/giờ</button>
+            <button class="text-button" data-event-action="duplicate" type="button">Nhân bản</button>
+            <button class="text-button" data-event-action="library" type="button">Chọn địa điểm trong Library</button>
+            <button class="text-button" data-event-action="ai" type="button">Gợi ý địa điểm</button>
+            <button class="text-button calendar-delete" data-event-action="remove" type="button">Xóa</button>
           </div>
         </div>
-        <p class="paper-panel helper" id="empty-plan">Chọn ngày và buổi, rồi bấm Xếp lịch đi bộ để tạo lịch cho chuyến này.</p>
-        <div id="trip-summary"></div>
-        <p class="small-notice" id="stale-notice" hidden>Form đã đổi. Xếp lại lịch để áp dụng các lựa chọn mới.</p>
-        <p class="timeline-edit-hint" id="timeline-edit-hint" hidden><span class="timeline-drag-hint">Kéo tay nắm và thả vào vị trí bạn muốn. </span>Bạn cũng có thể dùng các nút ở từng lượt ghé.</p>
-        <div id="timeline"></div>
-        <aside class="demo-note"><span data-icon="info"></span><p>Địa điểm, giá, giờ mở cửa và độ đông dùng dữ liệu demo. Thời gian đi bộ được ước tính theo từng buổi.</p></aside>
-      </section>
-    </div>
+        <form id="calendar-event-form" novalidate>
+          <div id="calendar-event-name-fields">
+            <div class="field"><label for="calendar-event-name">Tên sự kiện</label><input id="calendar-event-name" name="title" type="text" maxlength="120" required></div>
+            <div class="field"><label for="calendar-event-category">Danh mục</label><select id="calendar-event-category" name="category"></select></div>
+          </div>
+          <div class="calendar-range-fields">
+            <fieldset class="field">
+              <legend>Bắt đầu</legend>
+              <div class="calendar-date-time">
+                <label>Ngày <input name="startDate" type="date" required></label>
+                <label>Giờ <input name="startTime" type="time" required></label>
+              </div>
+            </fieldset>
+            <fieldset class="field" id="calendar-event-end">
+              <legend>Kết thúc</legend>
+              <div class="calendar-date-time">
+                <label>Ngày <input name="endDate" type="date" required></label>
+                <label>Giờ <input name="endTime" type="time" required></label>
+              </div>
+            </fieldset>
+          </div>
+          <div id="calendar-event-location" class="field">
+            <label for="calendar-event-location-input">Vị trí <span class="helper">(tùy chọn)</span></label>
+            <input id="calendar-event-location-input" name="location" type="text" maxlength="120">
+            <p id="calendar-event-linked-place" class="helper"></p>
+          </div>
+          <div id="calendar-event-travel" class="calendar-range-fields" hidden>
+            <div class="field"><label for="calendar-event-from">Điểm đi <span class="helper">(tùy chọn)</span></label><input id="calendar-event-from" name="from" type="text" list="calendar-known-places" maxlength="120"></div>
+            <div class="field"><label for="calendar-event-to">Điểm đến <span class="helper">(tùy chọn)</span></label><input id="calendar-event-to" name="to" type="text" list="calendar-known-places" maxlength="120"></div>
+          </div>
+          <datalist id="calendar-known-places"></datalist>
+          <button id="calendar-save-event" class="primary-button" type="submit">Lưu sự kiện</button>
+        </form>
+        <div id="calendar-attachment" hidden>
+          <p id="calendar-attachment-summary"></p>
+          <p id="calendar-attachment-warning" class="helper"></p>
+          <div class="calendar-buttons">
+            <button id="calendar-attach-apply" class="primary-button" type="button">Gắn địa điểm</button>
+            <button id="calendar-attach-alternative" class="text-button" type="button" hidden></button>
+            <button id="calendar-attach-edit" class="text-button" type="button">Chỉnh khung giờ</button>
+          </div>
+        </div>
+        <p id="calendar-event-error" class="error-box" role="alert" tabindex="-1" hidden></p>
+      </div>
+    </dialog>
+
   </main>
-
-  <dialog id="replace-dialog" aria-labelledby="replace-title">
-    <div class="replace-sheet">
-      <header class="replace-heading">
-        <div class="replace-heading-row">
-          <h2 id="replace-title">Thay địa điểm</h2>
-          <button type="button" id="replace-cancel" class="text-button">Hủy</button>
-        </div>
-        <p id="replace-context"></p>
-        <p id="replace-window"></p>
-      </header>
-      <div id="replace-picker">
-        <div class="replace-filters">
-          <div>
-            <label for="replace-query">Tên địa điểm</label>
-            <input id="replace-query" type="search" placeholder="Tìm trong Library" autocomplete="off">
-          </div>
-          <div>
-            <label for="replace-group">Nhóm địa điểm</label>
-            <select id="replace-group"><option value="">Tất cả nhóm</option></select>
-          </div>
-        </div>
-        <p id="replace-result-count" role="status"></p>
-        <ul id="replace-results" class="replace-results" role="list"></ul>
-      </div>
-      <section id="replace-preview" aria-labelledby="replace-preview-title" hidden>
-        <h3 id="replace-preview-title" tabindex="-1">Xem trước thay đổi</h3>
-        <p id="replace-route" class="replace-route"></p>
-        <table class="replace-comparison">
-          <thead><tr><th scope="col">Thay đổi</th><th scope="col">Trước</th><th scope="col">Sau</th></tr></thead>
-          <tbody id="replace-comparison"></tbody>
-        </table>
-        <p id="replace-budget" class="replace-meta"></p>
-        <p id="replace-opening" class="small-notice" hidden></p>
-      </section>
-      <p id="replace-refresh" class="small-notice" role="status" hidden></p>
-      <div id="replace-error" class="error-box" role="alert" tabindex="-1" hidden></div>
-      <div id="replace-actions" class="replace-actions" hidden>
-        <button type="button" id="replace-confirm" class="primary-button">Xác nhận thay</button>
-        <button type="button" id="replace-back" class="text-button">Chọn điểm khác</button>
-      </div>
-    </div>
-  </dialog>
 
   <footer id="site-footer" class="site-footer" hidden>
     <div class="wrapper footer-inner">

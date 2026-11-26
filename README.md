@@ -16,12 +16,18 @@ npm test
 
 ## Thử lịch mẫu
 
-1. Bấm **Lịch mẫu** để nạp ngày 27–29/11/2026. Lịch chỉ chọn sáng 27/11 (08:00–11:00) và chiều 28/11 (14:00–17:00). Ngày 29/11 nghỉ cả ngày.
+1. Từ **Lịch của tôi**, bấm **Tạo chuyến đi** rồi chọn **Lịch mẫu** để nạp ngày 27–29/11/2026. Lịch chỉ chọn sáng 27/11 (08:00–11:00) và chiều 28/11 (14:00–17:00). Ngày 29/11 nghỉ cả ngày.
 2. Bấm **Xếp lịch đi bộ**. Kết quả gồm hai buổi, sáu điểm và tổng 200.000 ₫ mỗi người trên ngân sách 350.000 ₫.
 3. Bấm **Chỉnh sửa** rồi chuyển Đền Ngọc Sơn xuống một vị trí. Cà phê Đinh lên đầu buổi lúc 08:00, Đền Ngọc Sơn lùi đến 08:57. Bỏ Đền Ngọc Sơn sẽ giảm tổng xuống 170.000 ₫ và báo thiếu điểm muốn ghé. Nút **Hoàn tác** khôi phục điểm vừa bỏ.
 4. Nhập 100.000 ₫ vào ngân sách. Phần tóm tắt báo số tiền vượt ngay để bạn có thể bỏ bớt điểm hoặc xếp lịch lại. Các thay đổi khác của form được áp dụng qua **Xếp lịch đi bộ**.
 
 Để thử cảnh báo giờ, chỉ giữ sáng 27/11, đặt 08:00–10:10 và chọn Phở Bát Đàn cùng Nhà cổ 87 Mã Mây làm hai điểm nhất định muốn ghé. Xếp lịch rồi chuyển Phở Bát Đàn xuống. Lượt ghé Phở Bát Đàn vượt cả 10:10 lẫn giờ đóng cửa mẫu.
+
+## Lịch của tôi
+
+Mỗi chuyến mới bắt đầu trống và có thể đổi tên ngay. Form, lịch nháp và thao tác hoàn tác được lưu theo chuyến trên trình duyệt. **Chốt lịch** tạo một bản riêng để xem lại. Sửa tiếp trong **Nháp** và bấm **Cập nhật lịch đã chốt** khi muốn thay bản đó.
+
+Khi có dữ liệu hợp lệ từ phiên bản trước trên cùng trình duyệt và địa chỉ web, **Lịch của tôi** hiển thị một chuyến nháp tên **Chuyến đi đã lưu**. Khóa cũ `nonla-wander-v1` được giữ để có thể thử lại nếu lần ghi đầu thất bại.
 
 ## Dữ liệu và cách xếp
 

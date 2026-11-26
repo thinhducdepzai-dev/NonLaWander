@@ -1,4 +1,6 @@
 import { areas, experienceById, periodById, placeById, transports, vibes } from './data.js';
+import { calendarBudget, calendarCommand, calendarOf, dateOf, isCalendar, validCalendarRange } from './calendar.js';
+import { planCalendarDraft, planningForm, planningIssue, planningQuestions, updatePlanning } from './calendar-planning.js';
 import { appendVisit, dateIndex, draftBudget, moveVisit, newVisitId, placeCost, prepareRequest, previewReplacement } from './planner.js';
 
 export const legacyStorageKey = 'nonla-wander-v1';
@@ -70,6 +72,7 @@ function isUndo(undo) {
 
 function isDraft(draft) {
   return isRecord(draft) && isForm(draft.form) && (draft.plan === null || isPlan(draft.plan)) &&
+    (draft.calendar === undefined || (draft.plan === null && isCalendar(draft.calendar))) &&
     (draft.appliedDraft === null || typeof draft.appliedDraft === 'string') && isUndo(draft.undo) && hasValidParticipants(draft);
 }
 
@@ -77,7 +80,8 @@ function isTrip(trip, id) {
   return isRecord(trip) && trip.version === 2 && trip.id === id && Number.isFinite(trip.createdAt) &&
     typeof trip.name === 'string' && isDraft(trip.draft) &&
     (trip.confirmed === null || (isRecord(trip.confirmed) && isForm(trip.confirmed.form) &&
-      isPlan(trip.confirmed.plan) && hasValidParticipants(trip.confirmed) &&
+      (trip.confirmed.calendar ? trip.confirmed.plan === null && isCalendar(trip.confirmed.calendar) : isPlan(trip.confirmed.plan)) &&
+      hasValidParticipants(trip.confirmed) &&
       (trip.confirmed.prices === undefined || isPriceSnapshot(trip.confirmed.prices))));
 }
 
@@ -105,7 +109,8 @@ function newTrip(id, name = defaultName, draft = blankDraft()) {
 }
 
 function planSnapshot(version) {
-  return { form: version.form, plan: version.plan, participants: participantCount(version) };
+  return { form: version.form, plan: version.plan, participants: participantCount(version),
+    ...(version.calendar ? { calendar: version.calendar } : {}) };
 }
 
 function tripPrices(plan) {
@@ -300,17 +305,140 @@ export function createTripStore(storage) {
     return { trip: write({ ...trip, draft }), stopId: idToSave };
   }
 
+  function setCalendarSetup(id, input) {
+    const trip = get(id);
+    if (!trip) return null;
+    const setup = Object.fromEntries(['startDate', 'startTime', 'endDate', 'endTime'].map((key) => [key, String(input[key] ?? '').slice(0, 10)]));
+    return write({ ...trip, calendarSetup: { ...setup, editingRange: !!input.editingRange } });
+  }
+
+  function setCalendarRange(id, start, end) {
+    const trip = get(id);
+    if (!trip || !validCalendarRange(start, end)) return null;
+    const current = calendarOf(trip.draft);
+    if (current?.mode || current?.events.length) return null;
+    const form = { ...trip.draft.form, startDate: dateOf(start), endDate: dateOf(end - 1) };
+    const draft = { ...trip.draft, form, plan: null, calendar: { start, end, mode: null, events: [] } };
+    const calendarSetup = { ...trip.calendarSetup, editingRange: false };
+    return write({ ...trip, draft, calendarSetup });
+  }
+
+  function setCalendarMode(id, mode) {
+    const trip = get(id);
+    if (!trip?.draft.calendar || trip.draft.calendar.mode || !['manual', 'ai'].includes(mode)) return null;
+    const draft = { ...trip.draft, calendar: { ...trip.draft.calendar, mode } };
+    return write({ ...trip, draft, activeCalendarTool: mode === 'ai' ? 'planning' : null });
+  }
+
+  function calendarChange(draft, calendar, previous, undoPreferences = null) {
+    return { ...draft, calendar, plan: null, appliedDraft: null, undo: null, calendarUndo: previous,
+      calendarUndoId: newVisitId(), calendarUndoPreferences: undoPreferences };
+  }
+
+  function changeCalendar(id, command, { preview = false, expected } = {}) {
+    const trip = get(id);
+    const calendar = trip && calendarOf(trip.draft);
+    if (!calendar?.mode) return { error: 'Thiết lập thời gian chuyến đi trước.' };
+    const result = calendarCommand(calendar, command, calendarBudget(trip.draft));
+    if (result.error || preview) return result;
+    if (expected !== undefined && expected !== result.fingerprint) return { ...result, stale: true };
+    if (result.issues.length) return result;
+    const budget = calendarBudget(trip.draft);
+    const form = budget === null ? trip.draft.form : { ...trip.draft.form, budget: String(budget) };
+    const draft = calendarChange({ ...trip.draft, form }, result.calendar, calendar);
+    return { ...result, undoId: draft.calendarUndoId, trip: write({ ...trip, draft }) };
+  }
+
+  function undoCalendar(id, expected) {
+    const trip = get(id);
+    if (!isCalendar(trip?.draft.calendarUndo)) return null;
+    if (expected && trip.draft.calendarUndoId !== expected) return null;
+    const { calendarUndo, calendarUndoId, calendarUndoPreferences, ...draft } = trip.draft;
+    if (calendarUndoPreferences) {
+      const { people, budget, previousPeople, previousBudget } = calendarUndoPreferences;
+      if (draft.participants === people) {
+        if (previousPeople === null) delete draft.participants;
+        else draft.participants = previousPeople;
+      }
+      if (draft.form.budget === budget) draft.form = { ...draft.form, budget: previousBudget };
+    }
+    const planning = trip.planning?.result?.undoId === calendarUndoId && calendarUndoId
+      ? { ...trip.planning, result: { undone: true } } : trip.planning;
+    return write({ ...trip, planning, draft: { ...draft, calendar: calendarUndo } });
+  }
+
+  function withCalendarPreferences(draft, { participants, budget }) {
+    return {
+      ...draft,
+      ...(isParticipantCount(participants) ? { participants } : {}),
+      ...(budget === null || isMoney(budget) ? { form: { ...draft.form, budget: budget === null ? '' : String(budget) } } : {}),
+    };
+  }
+
+  function setCalendarPreferences(id, preferences) {
+    const trip = get(id);
+    return trip && write({ ...trip, draft: withCalendarPreferences(trip.draft, preferences) });
+  }
+
+  function saveConversation(id, conversation, preferences = {}) {
+    const trip = get(id);
+    return trip && write({ ...trip, conversation: structuredClone(conversation),
+      draft: withCalendarPreferences(trip.draft, preferences) });
+  }
+
+  function setCalendarTool(id, tool) {
+    const trip = get(id);
+    return trip && write({ ...trip, activeCalendarTool: tool });
+  }
+
+  function savePlanning(id, change) {
+    const trip = get(id);
+    const planning = trip && updatePlanning(trip, change);
+    return planning ? write({ ...trip, planning }) : null;
+  }
+
+  function applyPlanning(id) {
+    const trip = get(id);
+    const calendar = calendarOf(trip?.draft);
+    if (!calendar?.mode) return { error: 'Thiết lập thời gian chuyến đi trước.' };
+    const planning = planningForm(trip);
+    if (planning.result && !planning.result.undone) return { trip, receipt: planning.result };
+    if (planning.step !== planningQuestions.length - 1) return { error: 'Xác nhận các câu hỏi trước khi lập lịch.' };
+    const invalid = planningQuestions.find((question) => planningIssue(question, planning.answers[question.key]));
+    if (invalid) return { error: planningIssue(invalid, planning.answers[invalid.key]) };
+    const result = planCalendarDraft(calendar, planning.answers);
+    const participants = Number(planning.answers.people);
+    const budget = planning.answers.budget === '' ? null : Number(planning.answers.budget);
+    let draft = withCalendarPreferences(trip.draft, { participants, budget });
+    const changed = result.calendar !== calendar || participantCount(draft) !== participantCount(trip.draft) ||
+      draft.form.budget !== trip.draft.form.budget;
+    if (changed) {
+      draft = calendarChange(draft, result.calendar, calendar, {
+        people: participants, budget: draft.form.budget,
+        previousPeople: trip.draft.participants ?? null, previousBudget: trip.draft.form.budget,
+      });
+    } else draft = trip.draft;
+    const receipt = { added: result.added, attached: result.attached, notes: result.notes,
+      preferencesChanged: changed && (participantCount(draft) !== participantCount(trip.draft) ||
+        draft.form.budget !== trip.draft.form.budget),
+      undoId: changed ? draft.calendarUndoId : null };
+    return { receipt, trip: write({ ...trip, draft, planning: { ...planning, result: receipt } }) };
+  }
+
   function confirm(id) {
     const trip = get(id);
-    if (!trip?.draft.plan) return null;
+    if (!trip?.draft.plan && !trip?.draft.calendar?.mode) return null;
     const confirmed = structuredClone(planSnapshot(trip.draft));
-    confirmed.prices = tripPrices(confirmed.plan);
+    confirmed.prices = confirmed.calendar ? Object.fromEntries(confirmed.calendar.events.filter(({ placeId }) => placeId)
+      .map(({ placeId }) => [placeId, placeCost(placeId)])) : tripPrices(confirmed.plan);
     return write({ ...trip, confirmed });
   }
 
   return {
     list, get, create, rename, saveDraft, setParticipants, setSavedPlace, setSavedExperience, addVisit, moveVisit: moveDraftVisit,
     previewReplacement: previewDraftReplacement, replaceVisit: replaceDraftVisit, confirm, migrateLegacy,
+    setCalendarSetup, setCalendarRange, setCalendarMode, changeCalendar, undoCalendar, setCalendarPreferences, saveConversation,
+    setCalendarTool, savePlanning, applyPlanning,
     get storageProblem() { return readFailed || unsaved.size > 0; },
   };
 }

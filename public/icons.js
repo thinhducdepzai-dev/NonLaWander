@@ -9,6 +9,8 @@ const paths = {
   search: '<circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 4 4"/>',
   pin: '<path d="M20 10c0 5-8 10-8 10s-8-5-8-10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/>',
   calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18m-13 5h.01M12 15h.01M16 15h.01"/>',
+  'message-circle': '<path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 9 9 0 0 1-3.6-.75L4 21l1.75-4.9A8.5 8.5 0 1 1 21 11.5Z"/><path d="M8.5 11.5h.01m4 0h.01m4 0h.01" stroke-width="2.5"/>',
+  close: '<path d="m6 6 12 12M18 6 6 18"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   sunrise: '<path d="M3 17h18M5 21h14M7 16a5 5 0 0 1 10 0M12 3v3M4.5 9l2 2m13-2-2 2"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M19 5l-1.5 1.5m-11 11L5 19"/>',

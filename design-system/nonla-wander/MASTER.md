@@ -15,4 +15,4 @@ Dùng ngôn ngữ cẩm nang in cho một công cụ lên lịch bằng tiếng 
 
 - Dùng trường ngày, giờ, hộp kiểm và nút radio gốc. Chỉ mở trường giờ khi buổi được chọn.
 - Tóm tắt lỗi nhận focus sau khi gửi form và dẫn tới từng trường. Cảnh báo trong lịch nằm cạnh buổi hoặc điểm liên quan.
-- Dùng mặc định bản mẫu ba ngày với hai buổi để người dùng xem được cả form và kết quả ngay. Bấm Chỉnh sửa để hiện nút Lên, Xuống và Bỏ, kèm thao tác hoàn tác khi bỏ điểm.
+- Mở **Lịch của tôi** để tạo hoặc chọn chuyến. Trong mỗi chuyến, nút **Lịch mẫu** nạp form ba ngày với hai buổi. Bấm **Chỉnh sửa** để hiện nút Lên, Xuống và Bỏ, kèm thao tác hoàn tác khi bỏ điểm.
