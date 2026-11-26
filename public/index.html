@@ -445,8 +445,29 @@
             </div>
             <form id="calendar-message-form" class="ai-composer">
               <label for="calendar-message" class="sr-only">Nhắn cho AI</label>
-              <textarea id="calendar-message" name="message" rows="1" maxlength="500" placeholder="Nhắn cho AI…" aria-describedby="calendar-chat-demo" required></textarea>
-              <button class="primary-button" type="submit" aria-label="Gửi tin nhắn"><span data-icon="up"></span></button>
+              <textarea id="calendar-message" name="message" rows="1" maxlength="500" placeholder="Nhắn cho AI…" aria-describedby="calendar-chat-demo calendar-chat-error"></textarea>
+              <div id="calendar-chat-attachment" class="chat-attachment" hidden>
+                <span data-icon="file-text"></span><span id="calendar-chat-filename"></span>
+                <button id="calendar-chat-remove-file" class="chat-icon-button" type="button" aria-label="Gỡ tài liệu"><span data-icon="close"></span></button>
+              </div>
+              <p id="calendar-chat-error" class="field-error chat-compose-error" role="alert"></p>
+              <div class="chat-composer-tools">
+                <div class="chat-tool">
+                  <button id="calendar-chat-add" class="chat-icon-button" type="button" aria-label="Thêm vào tin nhắn" aria-expanded="false" aria-controls="calendar-chat-add-options"><span data-icon="plus"></span></button>
+                  <div id="calendar-chat-add-options" class="chat-options" hidden>
+                    <button id="calendar-chat-choose-file" class="text-button" type="button" aria-describedby="calendar-chat-file-limit"><span data-icon="file-text"></span>Đính kèm tài liệu</button>
+                    <p id="calendar-chat-file-limit" class="helper">.txt, .md · 1 tệp mỗi tin nhắn · Tối đa 100 KB</p>
+                  </div>
+                  <input id="calendar-chat-file" type="file" accept=".txt,.md" hidden>
+                </div>
+                <div class="chat-tool chat-model-tool">
+                  <button id="calendar-chat-model" class="text-button" type="button" aria-expanded="false" aria-controls="calendar-chat-model-options">
+                    <span class="sr-only">Chọn model, hiện tại </span><span id="calendar-chat-model-label"></span><span data-icon="chevron"></span>
+                  </button>
+                  <div id="calendar-chat-model-options" class="chat-options" role="group" aria-label="Model khả dụng" hidden></div>
+                </div>
+                <button class="primary-button" type="submit" aria-label="Gửi tin nhắn"><span data-icon="up"></span></button>
+              </div>
             </form>
             <p id="calendar-chat-demo" class="ai-demo">AI demo · Dữ liệu Library mẫu</p>
           </div>

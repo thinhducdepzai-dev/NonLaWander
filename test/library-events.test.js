@@ -147,3 +147,49 @@ test('guided planning prefers a ward, and explains when matching sessions do not
   const absent = planCalendarDraft({ ...range, start: at('2026-12-21', '09:00'), end: at('2026-12-21', '19:00'), events: [] }, answers);
   assert.match(absent.notes.join(' '), /Chưa có suất demo/);
 });
+
+test('chat matches the Hanoi start date for consultations and writes, including the out-of-trip lookup', () => {
+  const { store, storage } = fixture();
+  const { id } = trip(store);
+  const draft = calendarOf(store.get(id).draft);
+  const request = (text, calendar = draft) => calendarDemoReply(text, calendar);
+  const wrong = request('Thêm Hòa nhạc cuối tuần lúc 19:30 ngày 19/12');
+  assert.match(wrong.reply, /khớp ngày/);
+  assert.equal(wrong.command, undefined);
+  store.saveConversation(id, { messages: [{ author: 'demo', text: wrong.reply, sessions: wrong.sessions }] });
+  assert.deepEqual(createTripStore(storage).get(id).draft.calendar.events, []);
+
+  for (const date of ['19/12', '18/12/2027', '18/12/26', '2026-12-19', '31/02']) {
+    assert.equal(request(`Thêm Hòa nhạc cuối tuần lúc 19:30 ngày ${date}`).command, undefined);
+  }
+  for (const requestText of [
+    'Thêm Hòa nhạc cuối tuần thứ Bảy ngày 18/12 lúc 19h30',
+    'Thêm Hòa nhạc cuối tuần ngày 18/12 lúc 19h99',
+    'Thêm Hòa nhạc cuối tuần ngày 18/12 lúc 25:00',
+    'Thêm Hòa nhạc cuối tuần ngày 18/12 lúc 19 giờ',
+    'Thêm Hòa nhạc cuối tuần lúc 19h 18/12',
+    'Thêm Hòa nhạc cuối tuần ngày 18/12 lúc 19',
+    'Thêm Hòa nhạc cuối tuần ngày 18/12 lúc 19:300',
+  ]) assert.equal(request(requestText).command, undefined);
+  assert.equal(request('Có Hòa nhạc cuối tuần lúc 19:30 ngày 19/12 không?').command, undefined);
+  assert.match(request('Có Hòa nhạc cuối tuần lúc 19:30 ngày 19/12 không?').reply, /khớp ngày/);
+  assert.deepEqual(request('Có Hòa nhạc cuối tuần thứ 6 lúc 19:30 ngày 18/12 không?').sessions, [second]);
+  assert.deepEqual(request('Có Hòa nhạc cuối tuần lúc 19:30 ngày 18 tháng 12 năm 2026 không?').sessions, [second]);
+  assert.deepEqual(request('Có Hòa nhạc cuối tuần ngày 18/12 lúc 19 giờ 30 phút không?').sessions, [second]);
+  assert.equal(request('Thêm Hòa nhạc cuối tuần lúc 19:30 ngày 19').command, undefined);
+  const vague = request('Thêm Hòa nhạc cuối tuần');
+  assert.match(vague.reply, /mấy giờ/);
+  assert.equal(vague.command, undefined);
+
+  const laterTrip = { ...draft, start: at('2026-12-19', '00:00') };
+  assert.equal(request('Thêm Hòa nhạc cuối tuần lúc 19:30 ngày 19/12', laterTrip).command, undefined);
+  assert.deepEqual(request('Thêm Hòa nhạc cuối tuần lúc 19:30 ngày 18/12', laterTrip).command, add(second));
+  const exact = request('Thêm Hòa nhạc cuối tuần lúc 19:30 ngày 18/12');
+  const saved = store.changeCalendar(id, exact.command);
+  assert.ok(saved.trip);
+  assert.deepEqual(createTripStore(storage).get(id).draft.calendar.events.map(({ sessionId, start }) => ({ sessionId, start })),
+    [{ sessionId: second, start: at('2026-12-18', '19:30') }]);
+
+  assert.equal(request('Thêm Đêm nghệ thuật ngày 20/12').command, undefined);
+  assert.deepEqual(sessionsInRange(libraryEventRange('2026-12-20', '2026-12-20')).map(({ id }) => id), [unknown]);
+});

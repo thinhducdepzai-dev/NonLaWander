@@ -163,11 +163,12 @@ export function createTripStore(storage) {
     return pending ? structuredClone(pending) : readTrip(id);
   }
 
-  function write(trip) {
+  function write(trip, requireStorage = false) {
     try {
       storage.setItem(tripStoragePrefix + trip.id, JSON.stringify(trip));
       unsaved.delete(trip.id);
     } catch {
+      if (requireStorage) return null;
       unsaved.set(trip.id, structuredClone(trip));
     }
     return trip;
@@ -339,7 +340,7 @@ export function createTripStore(storage) {
       calendarUndoId: newVisitId(), calendarUndoPreferences: undoPreferences };
   }
 
-  function changeCalendar(id, command, { preview = false, expected } = {}) {
+  function changeCalendar(id, command, { preview = false, expected, withConversation } = {}) {
     const trip = get(id);
     const calendar = trip && calendarOf(trip.draft);
     if (!calendar?.mode) return { error: 'Thiết lập thời gian chuyến đi trước.' };
@@ -350,7 +351,11 @@ export function createTripStore(storage) {
     const budget = calendarBudget(trip.draft);
     const form = budget === null ? trip.draft.form : { ...trip.draft.form, budget: String(budget) };
     const draft = calendarChange({ ...trip.draft, form }, result.calendar, calendar);
-    return { ...result, undoId: draft.calendarUndoId, trip: write({ ...trip, draft }) };
+    const change = { ...result, undoId: draft.calendarUndoId };
+    const next = { ...trip, draft };
+    if (withConversation) next.conversation = withConversation(change);
+    const saved = write(next, Boolean(withConversation));
+    return saved ? { ...change, trip: saved } : { storageFailed: true };
   }
 
   function undoCalendar(id, expected) {
@@ -384,10 +389,10 @@ export function createTripStore(storage) {
     return trip && write({ ...trip, draft: withCalendarPreferences(trip.draft, preferences) });
   }
 
-  function saveConversation(id, conversation, preferences = {}) {
+  function saveConversation(id, conversation, preferences = {}, { requireStorage = false } = {}) {
     const trip = get(id);
     return trip && write({ ...trip, conversation: structuredClone(conversation),
-      draft: withCalendarPreferences(trip.draft, preferences) });
+      draft: withCalendarPreferences(trip.draft, preferences) }, requireStorage);
   }
 
   function setCalendarTool(id, tool) {

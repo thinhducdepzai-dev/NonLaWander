@@ -644,8 +644,11 @@ export function setupCalendarView({ trips, updated, tripHash, savedHref, announc
   }
 
   function saveChat(chatState) {
-    handleUpdate(trips.saveConversation(trip.id, chatState));
+    const saved = trips.saveConversation(trip.id, chatState, {}, { requireStorage: true });
+    if (!saved) return false;
+    handleUpdate(saved);
     chat.render();
+    return true;
   }
 
   function undoCalendar(expected) {

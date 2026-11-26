@@ -47,6 +47,10 @@ Hội thoại tự do lưu theo từng chuyến. Câu hỏi tư vấn, kể cả
 
 Với câu hỏi về sự kiện, chat liệt kê các suất giao với thời gian chuyến và liên kết chi tiết. Lệnh thêm đủ thông tin dùng cùng thao tác kiểm tra và lưu như Library. Khi còn nhiều suất phù hợp, hỏi khách chọn giờ. Câu hỏi tư vấn giữ nguyên nháp.
 
+Nếu khách nêu ngày cụ thể, chat khớp theo ngày bắt đầu của suất ở Hà Nội, kể cả khi kiểm tra ứng viên ngoài khung chuyến. Ngày, thứ và giờ đều phải khớp trước khi thêm. Các suất khác có thể xuất hiện dưới dạng liên kết để khách tự xem. Bộ lọc theo ngày của Library vẫn dựa trên phần thời gian giao nhau.
+
+Trong Hỏi ý kiến AI, khách chọn model từ danh sách ứng dụng có thể chạy. Bản local dùng Demo cục bộ, lưu lựa chọn theo chuyến và trở về mặc định nếu model đã lưu mất khả dụng. Dấu + nhận một tệp văn bản UTF-8 dạng .txt hoặc .md, tối đa 100 KB (100.000 byte) mỗi tin nhắn. Sau khi gửi, lịch sử giữ tên tệp và kết quả đối chiếu. Nội dung được đọc trong trình duyệt và dùng cho lần gửi đó. Demo đối chiếu tên địa điểm trong tệp với Library. Chỉ lời nhắn của khách có thể yêu cầu sửa lịch. Nếu ghi hội thoại thất bại, bản đang soạn vẫn có thể sửa, gỡ tệp hoặc gửi lại trong phiên hiện tại. Khi gửi lệnh sửa lịch qua chat, ghi thay đổi lịch và hội thoại cùng nhau.
+
 ### Lập lịch cùng AI
 
 Dùng thời gian chuyến đã chọn. Mỗi bước hiển thị một câu hỏi, tiến độ và giá trị đã có để sửa. Vibe có thể chọn nhiều mục. Câu hỏi phường dùng chung bộ chọn với mục Phường ưu tiên trong lịch nháp. Với câu mở, nhập qua + Khác và giữ các lựa chọn đã chọn. Bấm Xác nhận để đi tiếp, Quay lại để sửa, hoặc Bỏ qua ở bước tùy chọn. Tiến độ và câu trả lời lưu riêng theo chuyến, kể cả khi chuyển công cụ hoặc tải lại.

@@ -1060,19 +1060,17 @@ body.is-calendar main.wrapper { --wrap: 1400px; }
 #calendar-chat-prompts { margin-bottom: .8rem; }
 #calendar-chat-prompts .ai-pill { flex: 1 0 auto; font-size: .79rem; }
 .ai-composer {
-  display: flex;
-  align-items: end;
-  gap: .3rem;
-  padding: .26rem;
+  display: grid;
+  gap: .2rem;
+  padding: .32rem;
   border: 1px solid var(--control-line);
   border-radius: 1.65rem;
   background: var(--card);
 }
 .ai-composer:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
 #calendar-message {
-  flex: 1;
+  width: 100%;
   min-width: 0;
-  align-self: center;
   min-height: 2.4rem;
   padding: .5rem .55rem .3rem;
   border: 0;
@@ -1085,6 +1083,25 @@ body.is-calendar main.wrapper { --wrap: 1400px; }
 }
 .ai-composer .primary-button { width: 2.75rem; min-height: 2.75rem; flex: none; padding: 0; border-radius: 50%; }
 .ai-composer .primary-button:focus-visible { outline-offset: 1px; }
+.chat-composer-tools { display: flex; align-items: center; gap: .35rem; }
+.chat-tool { position: relative; min-width: 0; }
+.chat-model-tool { margin-inline-start: auto; }
+.chat-icon-button { display: grid; place-items: center; width: 2.75rem; min-height: 2.75rem; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: var(--card); color: var(--accent-strong); }
+.chat-icon-button:hover, .chat-icon-button[aria-expanded="true"] { background: var(--accent-soft); }
+#calendar-chat-model { min-height: 2.75rem; max-width: 100%; border-radius: 999px; gap: .3rem; padding-inline: .58rem; }
+.chat-options { position: absolute; z-index: 6; inset-block-end: calc(100% + .5rem); inset-inline-start: 0; min-width: max-content; padding: .4rem; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+.chat-model-tool .chat-options { inset-inline: auto 0; }
+.chat-options .text-button { min-height: 2.75rem; width: 100%; justify-content: start; border-color: transparent; }
+.chat-options .helper { padding: .12rem .5rem .3rem; font-size: .75rem; }
+.chat-model-option[aria-pressed="false"] svg { visibility: hidden; }
+.chat-attachment { display: flex; align-items: center; gap: .35rem; min-width: 0; max-width: 100%; width: fit-content; padding-inline: .55rem .05rem; border: 1px solid var(--line); border-radius: 999px; color: var(--accent-strong); background: var(--accent-soft); font-size: .83rem; }
+#calendar-chat-filename { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-attachment .chat-icon-button { flex: none; border-color: transparent; background: transparent; }
+.chat-attachment .chat-icon-button:hover { background: var(--card); }
+.chat-compose-error { margin: 0 .5rem .2rem; }
+.chat-compose-error:empty { display: none; }
+.chat-sent-document { font-weight: 650; color: var(--accent-strong); }
+.chat-sent-document:not(:last-child) { margin-bottom: .3rem; }
 .ai-demo { margin-top: .4rem; color: var(--muted); font-size: .72rem; }
 .calendar-messages { display: flex; flex-direction: column; gap: .7rem; overflow-wrap: anywhere; }
 .calendar-messages:empty { display: none; }

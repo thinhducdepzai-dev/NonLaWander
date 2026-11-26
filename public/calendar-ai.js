@@ -1,13 +1,18 @@
 import { areas, eventSessionById, eventSessions, experienceById, experiencePlaces, experiences, libraryPlaces as places, vibes } from './data.js';
-import { availableStart, dayCount, dayMinutes, dayStart, minuteInDay, momentLabel, placeCategory, sessionTimeLabel, sessionTiming, timeOf } from './calendar.js';
+import { availableStart, dayCount, dayMinutes, dayStart, minuteInDay, momentLabel, placeCategory, sessionTimeLabel, sessionTiming, timeOf, wallMinute } from './calendar.js';
 import { eventLibraryHref, sessionsInRange } from './library-events.js';
 import { wardPreference } from './wards.js';
+import { setupChatComposer } from './chat-composer.js';
+import { chatDocumentReply } from './chat-documents.js';
+import { activeChatModel, availableChatModels } from './chat-models.js';
 
 const fold = (value) => value.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').replaceAll('đ', 'd');
 const $ = (id) => document.getElementById(id);
 const money = new Intl.NumberFormat('vi-VN');
 const editVerb = /^(?:(?:hay|vui long|nho|chi)\s+)*(?:(dung(?: co)?|cho|khong(?: duoc| can)?)\s+)?(doi (?:ngay gio|gio|ngay)|bo su kien|xoa|dich|doi|thay|gan|them|tao)\b/;
 const clockPattern = /\b([01]?\d|2[0-3])(?:\s*[:h]\s*([0-5]\d)\b|\s*h\b)/;
+const sessionDatePattern = /\b(?:(\d{4})-(\d{1,2})-(\d{1,2})|(\d{1,2})\s*(?:[./-]|thang\s+)\s*(\d{1,2})(?:\s*(?:[./-]|nam\s+)\s*(\d+))?)(?![\d/-])/g;
+const sessionClockPattern = /\b(?:(\d+)(?:\s*:\s*(\d+)|\s*(?:h|gio)(?:\s*(\d+)\b(?!\s*(?:[./-]\s*\d|thang\b)))?)|luc\s+(\d+)\b(?!\s*(?:[./:-]\s*\d|(?:thang|h|gio)\b)))\b/g;
 
 export function parseCalendarMessage(message) {
   const text = fold(message);
@@ -58,26 +63,58 @@ function editInstructions(text) {
   });
 }
 
-function sessionReply(text, calendar, action, isCommand, parsed, preferences) {
+function sessionReply(text, calendar, action, isCommand, preferences) {
   const named = eventSessions.find(({ name }) => text.includes(fold(name)));
   const refersToSession = named || /\b(su kien nao|cac su kien|buoi dien|suat dien|hoa nhac|suat nao)\b/.test(text);
   if (!refersToSession || (action && action !== 'create')) return null;
-  const clock = text.match(clockPattern);
-  const minute = clock && Number(clock[1]) * 60 + Number(clock[2] ?? 0);
+  const dates = [...text.matchAll(sessionDatePattern)];
+  const clocks = [...text.matchAll(sessionClockPattern)];
+  const days = [...text.matchAll(/\b(?:thu\s+(hai|ba|tu|nam|sau|bay|[2-7])|chu nhat)\b/g)]
+    .map(([, day]) => !day ? 0 : /^[2-7]$/.test(day) ? Number(day) - 1 : weekdays.indexOf(`thu ${day}`));
+  if (dates.length > 1 || clocks.length > 1 || new Set(days).size > 1) {
+    return { reply: 'Bạn có thể cho mình một ngày, thứ và giờ cụ thể để tìm đúng suất không?' };
+  }
+  if (!dates.length && /\bngay\s+\d/.test(text)) {
+    return { reply: 'Bạn có thể ghi đủ ngày và tháng của suất không? Ví dụ ngày 18/12.' };
+  }
+  const matchesName = (session) => named ? session.name === named.name
+    : !/\bhoa nhac\b/.test(text) || fold(session.name).includes('hoa nhac');
+  const date = dates[0];
+  const year = date?.[1] ?? date?.[6];
+  const month = (date?.[2] ?? date?.[5])?.padStart(2, '0');
+  const day = (date?.[3] ?? date?.[4])?.padStart(2, '0');
+  const clock = clocks[0];
+  const hourText = clock?.[1] ?? clock?.[4];
+  const minuteText = clock?.[2] ?? clock?.[3] ?? '0';
+  const hours = Number(hourText);
+  const minutes = Number(minuteText);
+  if ((date && !Number.isFinite(wallMinute(`${year ?? '2000'}-${month}-${day}`, '00:00'))) ||
+      (clock && (hourText.length > 2 || minuteText.length > 2 || hours > 23 || minutes > 59))) {
+    return { reply: 'Bạn có thể kiểm tra lại ngày và giờ bắt đầu của suất không?' };
+  }
   const matches = (session) => {
     const start = sessionTiming(session).start;
-    return (!named || session.name === named.name) && (!/\bhoa nhac\b/.test(text) || named || fold(session.name).includes('hoa nhac')) &&
-      (!clock || minuteInDay(start) === minute) &&
-      (!parsed.weekday || weekdays[new Date(start * 60000).getUTCDay()] === parsed.weekday);
+    const [sessionYear, sessionMonth, sessionDay] = session.date.split('-');
+    return matchesName(session) && (!date || (sessionMonth === month && sessionDay === day && (!year || sessionYear === year))) &&
+      (!clock || minuteInDay(start) === hours * 60 + minutes) &&
+      (!days.length || new Date(start * 60000).getUTCDay() === days[0]);
   };
   const geography = wardPreference(preferences.wardIds);
   const alternatives = sessionsInRange(calendar).filter(matches)
     .toSorted((a, b) => geography.score({ id: b.placeId }) - geography.score({ id: a.placeId }));
   const links = alternatives.map(({ id }) => id);
+  if (!links.length && (date || days.length || clock)) {
+    const outside = isCommand && named && clock ? eventSessions.filter(matches) : [];
+    if (outside.length === 1) return { direct: true, command: { type: 'add-session', sessionId: outside[0].id },
+      label: `Thêm “${outside[0].name}”.` };
+    const suggestions = sessionsInRange(calendar).filter(matchesName).map(({ id }) => id);
+    return { reply: suggestions.length ? 'Không có suất demo khớp ngày, thứ và giờ bạn nêu trong chuyến. Bạn có thể xem các suất khác dưới đây.'
+      : 'Không có suất demo khớp ngày, thứ và giờ bạn nêu trong chuyến.', sessions: suggestions };
+  }
   if (!isCommand) return links.length ? { reply: 'Các suất sự kiện demo trong thời gian chuyến.', sessions: links }
     : { reply: 'Chưa có suất demo khớp yêu cầu trong thời gian chuyến.' };
   if (alternatives.length > 1) return { reply: 'Có nhiều suất phù hợp. Bạn muốn thêm suất lúc mấy giờ?', sessions: links };
-  const exact = alternatives[0] ?? (named && clock ? eventSessions.find(matches) : null);
+  const exact = alternatives[0];
   if (!exact) return { reply: 'Chưa xác định được suất. Bạn có thể cho mình tên và giờ bắt đầu, hoặc chọn suất trong Library.' };
   return { direct: true, command: { type: 'add-session', sessionId: exact.id },
     label: `Thêm “${exact.name}”.` };
@@ -106,7 +143,7 @@ export function calendarDemoReply(message, calendar, contextId, preferences = {}
   const clocks = text.match(new RegExp(clockPattern.source, 'g')) ?? [];
   const clockSpecified = clocks.length > 0;
   if (isCommand && clocks.length > 1) return { reply: 'Bạn muốn dùng mốc giờ nào trước? Bản demo xử lý từng thay đổi một.' };
-  const eventAnswer = sessionReply(text, calendar, instruction?.action, isCommand, parsed, preferences);
+  const eventAnswer = sessionReply(text, calendar, instruction?.action, isCommand, preferences);
   if (eventAnswer) return eventAnswer;
   const menu = experiences.find(({ name }) => text.includes(fold(name)));
   const matchedPlaces = places.filter(({ name }) => text.includes(fold(name)));
@@ -208,6 +245,10 @@ export function calendarDemoReply(message, calendar, contextId, preferences = {}
 export function setupCalendarChat({ getTrip, getCalendar, save, preview, apply, choosePlace, undo }) {
   const input = $('calendar-message');
   const history = $('calendar-chat-history');
+  const providers = { demo: calendarDemoReply };
+  const models = availableChatModels(providers);
+  const saveError = 'Chưa lưu được hội thoại. Nội dung đang soạn vẫn còn. Hãy thử gửi lại.';
+  const composer = setupChatComposer({ getTrip, models, selectModel: (id) => save({ ...state(), modelId: id }) });
   let rendered;
   function state() {
     return { messages: [], ...getTrip().conversation };
@@ -216,6 +257,7 @@ export function setupCalendarChat({ getTrip, getCalendar, save, preview, apply, 
   function render() {
     const trip = getTrip();
     const chat = state();
+    composer.render();
     const context = getCalendar().events.find(({ id }) => id === chat.contextId);
     $('calendar-chat-trip').textContent = trip.name;
     $('calendar-chat-welcome').hidden = !!chat.messages.length;
@@ -227,8 +269,7 @@ export function setupCalendarChat({ getTrip, getCalendar, save, preview, apply, 
       const nearEnd = history.scrollHeight - history.clientHeight - history.scrollTop < 80;
       const switchedTrip = rendered === undefined || !rendered.startsWith(`["${trip.id}",`);
       rendered = signature;
-      if (switchedTrip) input.value = '';
-      $('calendar-messages').replaceChildren(...chat.messages.map(({ author, text, choices, sessions, undoId }) => {
+      $('calendar-messages').replaceChildren(...chat.messages.map(({ author, text, attachmentName, choices, documentPlaces, sessions, undoId }) => {
         const row = document.createElement('li');
         row.className = author === 'you' ? 'calendar-message-user' : 'calendar-message-demo';
         const speaker = document.createElement('span');
@@ -236,7 +277,15 @@ export function setupCalendarChat({ getTrip, getCalendar, save, preview, apply, 
         speaker.textContent = author === 'you' ? 'Bạn: ' : 'AI demo: ';
         const body = document.createElement('p');
         body.textContent = text;
-        row.append(speaker, body);
+        row.append(speaker);
+        if (attachmentName) {
+          const attachment = document.createElement('p');
+          attachment.className = 'chat-sent-document';
+          attachment.textContent = attachmentName;
+          attachment.title = attachmentName;
+          row.append(attachment);
+        }
+        if (text) row.append(body);
         for (const id of choices ?? []) {
           const item = places.find((place) => place.id === id);
           if (!item) continue;
@@ -254,6 +303,15 @@ export function setupCalendarChat({ getTrip, getCalendar, save, preview, apply, 
           link.className = 'text-button chat-session-link';
           link.href = eventLibraryHref({ sessionId: id, tripId: trip.id });
           link.textContent = `${session.name} · ${sessionTimeLabel(session)}`;
+          row.append(link);
+        }
+        for (const id of documentPlaces ?? []) {
+          const place = places.find((entry) => entry.id === id);
+          if (!place) continue;
+          const link = document.createElement('a');
+          link.className = 'text-button chat-session-link';
+          link.href = `#library/${place.id}`;
+          link.textContent = place.name;
           row.append(link);
         }
         if (undoId && undoId === trip.draft.calendarUndoId) {
@@ -288,7 +346,9 @@ export function setupCalendarChat({ getTrip, getCalendar, save, preview, apply, 
   }
 
   function sendMessage(message) {
-    if (!message) return;
+    const attachment = composer.attachment();
+    if (composer.isReading()) return composer.showError('Đang đọc tài liệu. Hãy gửi khi tên tệp xuất hiện.');
+    if (!message && !attachment) return;
     const chat = state();
     const trip = getTrip();
     const preferences = {
@@ -299,20 +359,27 @@ export function setupCalendarChat({ getTrip, getCalendar, save, preview, apply, 
       vibe: vibes.filter(({ id }) => trip.draft.form.vibes.includes(id)).map(({ label }) => label).join(' '),
       idea: experienceById[trip.savedExperienceIds[0]]?.name,
     };
-    const response = calendarDemoReply(message, getCalendar(), chat.contextId, preferences);
-    const messages = [...chat.messages, { author: 'you', text: message }];
+    const model = activeChatModel(models, chat.modelId);
+    const response = (attachment ? chatDocumentReply(message, attachment) : null) ??
+      providers[model.provider](message, getCalendar(), chat.contextId, preferences);
+    const messages = [...chat.messages, { author: 'you', text: message,
+      ...(attachment && { attachmentName: attachment.name }) }];
     const reply = (text, extras) => messages.push({ author: 'demo', text, ...extras });
-    if (response.reply) reply(response.reply, { choices: response.choices, sessions: response.sessions });
+    if (response.reply) reply(response.reply, { choices: response.choices, sessions: response.sessions, documentPlaces: response.documentPlaces });
     if (response.consultation) {
       const result = preview(response.consultation);
       const issue = resultIssue(result);
       reply([response.label, issue || 'Khung giờ này có thể xếp được theo dữ liệu demo.', proposalImpact(result)].filter(Boolean).join(' '));
     }
+    let saved = false;
     if (response.command) {
-      const result = response.direct ? apply(response.command) : preview(response.command);
+      const result = response.direct ? apply(response.command, { withConversation(change) {
+        reply(`${response.label} Đã cập nhật nháp. ${proposalImpact(change)}`.trim(), { undoId: change.undoId });
+        return { ...chat, modelId: model.id, proposal: null, messages };
+      } }) : preview(response.command);
+      if (result.storageFailed) return composer.showError(saveError);
       if (result.trip) {
-        reply(`${response.label} Đã cập nhật nháp. ${proposalImpact(result)}`.trim(), { undoId: result.undoId });
-        chat.proposal = null;
+        saved = true;
       } else if (result.error || response.direct) {
         reply(`${resultIssue(result)} Lịch nháp được giữ nguyên. Bạn muốn thử giờ hoặc địa điểm khác?`);
       } else {
@@ -320,9 +387,9 @@ export function setupCalendarChat({ getTrip, getCalendar, save, preview, apply, 
           fingerprint: result.fingerprint, feedback: resultIssue(result), blocked: !!result.issues.length };
       }
     }
-    save({ ...chat, messages });
+    if (!saved && !save({ ...chat, modelId: model.id, messages })) return composer.showError(saveError);
     history.scrollTop = history.scrollHeight;
-    input.value = '';
+    composer.clear();
     input.focus({ preventScroll: true });
   }
 
@@ -337,7 +404,16 @@ export function setupCalendarChat({ getTrip, getCalendar, save, preview, apply, 
   });
   $('calendar-chat-prompts').addEventListener('click', (event) => {
     const button = event.target.closest('button');
-    if (button) sendMessage(button.textContent.trim());
+    if (!button) return;
+    const prompt = button.textContent.trim();
+    if (!input.value && !composer.attachment() && !composer.isReading()) sendMessage(prompt);
+    else {
+      if (!input.value) {
+        input.value = prompt;
+        input.dispatchEvent(new Event('input'));
+      }
+      input.focus();
+    }
   });
   $('calendar-clear-context').addEventListener('click', () => {
     save({ ...state(), contextId: null });
@@ -362,10 +438,12 @@ export function setupCalendarChat({ getTrip, getCalendar, save, preview, apply, 
     const chat = state();
     const proposal = chat.proposal;
     if (!proposal) return;
-    const result = apply(proposal.command, { expected: proposal.fingerprint });
+    const result = apply(proposal.command, { expected: proposal.fingerprint, withConversation(change) {
+      return { ...chat, proposal: null, messages: [...chat.messages, { author: 'demo',
+        text: `${proposal.label} Đã cập nhật nháp. ${proposalImpact(change)}`.trim(), undoId: change.undoId }] };
+    } });
+    if (result.storageFailed) return composer.showError(saveError);
     if (result.trip) {
-      save({ ...chat, proposal: null, messages: [...chat.messages, { author: 'demo',
-        text: `${proposal.label} Đã cập nhật nháp. ${proposalImpact(result)}`.trim(), undoId: result.undoId }] });
       input.focus();
       return;
     }
