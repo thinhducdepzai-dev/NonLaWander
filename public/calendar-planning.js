@@ -187,8 +187,8 @@ export function planCalendarDraft(calendar, answers) {
         const outside = geography.outsideNote([{ id: event.placeId, name: event.title }], 'Chưa có suất phù hợp hơn trong phường ưu tiên.');
         if (outside) notes.push(outside);
       } else {
-        const conflict = attempts[0]?.issues?.[0]?.message;
-        notes.push(conflict ? `Chưa xếp được suất demo. ${conflict}` : 'Chưa có suất demo khớp yêu cầu trong thời gian chuyến.');
+        const conflict = attempts[0]?.error ?? attempts[0]?.issues?.[0]?.message;
+        notes.push(conflict ? `Chưa xếp được suất. ${conflict}` : 'Chưa có suất trong Library khớp yêu cầu trong thời gian chuyến.');
       }
     }
   }

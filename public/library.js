@@ -1,9 +1,10 @@
-import { calendarOf, sessionTimeLabel } from './calendar.js';
+import { calendarOf, sessionHasEnd, sessionTimeLabel } from './calendar.js';
 import { areas, eventSessionById, experienceById, experiencePlaces, experiences, placeById, libraryPlaces as places } from './data.js';
 import { icon } from './icons.js';
 import { hasKnownCost } from './planner.js';
 import { placeWard } from './wards.js';
-import { eventDateFilters, eventLibraryHref, libraryEventRange, sessionsInRange } from './library-events.js';
+import { eventDateFilters, eventLibraryHref, libraryEventRange, sessionKind, sessionsInRange, sessionTicketLabel } from './library-events.js';
+import { libraryImage, sessionImage } from './library-images.js';
 
 const $ = (id) => document.getElementById(id);
 const query = $('library-query');
@@ -97,10 +98,25 @@ function placeCost(place) {
 
 function libraryCard(item, href, meta, price) {
   const row = $('library-place-template').content.firstElementChild.cloneNode(true);
-  row.querySelector('a').href = href;
+  const link = row.querySelector('a');
+  link.href = href;
   row.querySelector('h3').textContent = item.name;
-  row.querySelector('.library-place-icon').innerHTML = icon(item.icon);
+  const fallback = row.querySelector('.library-place-icon');
+  fallback.innerHTML = icon(item.icon);
   row.querySelector('.library-place-meta').textContent = meta;
+  if (item.image) {
+    link.classList.add('library-place-with-image');
+    fallback.hidden = true;
+    const caption = document.createElement('small');
+    caption.className = 'library-card-caption';
+    caption.hidden = !item.image.caption;
+    caption.textContent = item.image.caption ? `Ảnh · ${item.image.caption}` : '';
+    row.querySelector('.library-place-info').append(caption);
+    row.querySelector('.library-card-media').append(libraryImage(item.image, { onError() {
+      fallback.hidden = false;
+      caption.hidden = true;
+    } }));
+  }
   const priceLabel = row.querySelector('.library-place-price');
   priceLabel.hidden = !price;
   priceLabel.textContent = price ?? '';
@@ -108,7 +124,7 @@ function libraryCard(item, href, meta, price) {
 }
 
 function placeCard(place, experienceId) {
-  const meta = [place.category, areaLabels.get(place.area)].filter(Boolean).join(' · ');
+  const meta = [place.category, place.address || areaLabels.get(place.area)].filter(Boolean).join(' · ');
   const row = libraryCard(place, libraryHref(place.id, { experience: experienceId }), meta, placeCost(place));
   row.querySelector('a').dataset.placeId = place.id;
   return row;
@@ -133,31 +149,30 @@ function renderResults() {
   $('library-reset').disabled = !query.value && !group;
 }
 
-function ticketPrice(session) {
-  return session.price === 0 ? 'Miễn phí' : session.price == null ? 'Chưa biết giá vé' : `${currency.format(session.price)}/người`;
-}
+const dateLabel = (date) => date.split('-').reverse().join('/');
 
 function renderEventResults(from, to) {
   const listing = sessionsInRange(libraryEventRange(from, to));
-  const formatDate = (date) => date.split('-').reverse().join('/');
-  const range = from === to ? formatDate(from) : `${formatDate(from)} – ${formatDate(to)}`;
+  const range = from === to ? dateLabel(from) : `${dateLabel(from)} – ${dateLabel(to)}`;
   $('library-event-count').textContent = listing.length
     ? `${listing.length} suất · ${range} · Giờ Hà Nội`
     : `Không có suất ${from === to ? 'ngày' : 'từ'} ${range} theo giờ Hà Nội. Hãy đổi khoảng ngày.`;
   $('library-event-results').replaceChildren(...listing.map((session) => {
     const href = eventLibraryHref({ sessionId: session.id, tripId: libraryTripId, from, to });
-    const row = libraryCard({ ...session, icon: 'calendar' }, href, placeById[session.placeId]?.name ?? 'Chưa có nơi tổ chức', ticketPrice(session));
+    const venue = placeById[session.placeId];
+    const row = libraryCard({ ...session, icon: 'calendar', image: sessionImage(session, venue) }, href,
+      venue?.name ?? 'Chưa có nơi tổ chức', sessionTicketLabel(session));
     const link = row.querySelector('a');
     link.dataset.sessionId = session.id;
     const time = document.createElement('p');
     time.className = 'event-card-time';
-    time.textContent = sessionTimeLabel(session);
-    const demo = document.createElement('small');
-    demo.className = 'helper';
-    demo.textContent = 'Sự kiện demo';
+    time.textContent = sessionTimeLabel(session, true);
+    const kind = document.createElement('small');
+    kind.className = 'helper';
+    kind.textContent = sessionKind(session);
     const info = row.querySelector('.library-place-info');
-    info.prepend(time);
-    info.append(demo);
+    info.querySelector('h3').after(time);
+    info.append(kind);
     return row;
   }));
 }
@@ -180,18 +195,19 @@ $('library-event-filters').addEventListener('submit', (event) => {
 
 function renderSession(session, params) {
   $('library-detail-title').textContent = session?.name ?? 'Không tìm thấy suất sự kiện';
-  $('library-detail-category').textContent = 'Sự kiện demo';
+  $('library-detail-category').textContent = session ? sessionKind(session) : '';
   $('library-detail-category').hidden = !session;
   $('library-detail-description').textContent = session ? '' : 'Quay về danh sách sự kiện để chọn suất khác.';
   $('library-detail-demo').hidden = true;
   $('library-detail-content').hidden = true;
   $('library-experience-places').hidden = true;
   $('library-event-detail').hidden = !session;
+  $('library-event-missing-end').hidden = !session || sessionHasEnd(session);
   $('library-back').href = eventLibraryHref({ tripId: libraryTripId, from: params.get('from'), to: params.get('to') });
   $('library-back-label').textContent = 'Quay về sự kiện';
   if (!session) return;
-  $('library-event-time').textContent = sessionTimeLabel(session);
-  $('library-event-price').textContent = ticketPrice(session);
+  $('library-event-time').textContent = sessionTimeLabel(session, true);
+  $('library-event-price').textContent = sessionTicketLabel(session);
   const venue = placeById[session.placeId];
   const holder = $('library-event-venue');
   if (!venue) holder.textContent = 'Chưa có nơi tổ chức';
@@ -202,6 +218,64 @@ function renderSession(session, params) {
     link.textContent = venue.name;
     holder.replaceChildren(link);
   }
+}
+
+function renderSources(sources = []) {
+  $('library-sources').hidden = !sources.length;
+  $('library-source-list').replaceChildren(...sources.map(({ title, url, checkedOn, coverage }) => {
+    const item = document.createElement('li');
+    const link = document.createElement('a');
+    link.className = 'back-link';
+    link.href = url;
+    link.textContent = title;
+    const details = document.createElement('p');
+    details.className = 'helper';
+    const date = document.createElement('time');
+    date.dateTime = checkedOn;
+    date.textContent = dateLabel(checkedOn);
+    details.append('Đối chiếu ', date, ` · ${coverage}`);
+    item.append(link, details);
+    return item;
+  }));
+}
+
+function renderDetailImage(image) {
+  const figure = $('library-detail-image');
+  figure.hidden = !image;
+  figure.replaceChildren();
+  if (!image) return;
+
+  const frame = document.createElement('div');
+  frame.className = 'library-detail-image-frame';
+  frame.classList.toggle('library-detail-poster-frame', image.kind === 'poster');
+  frame.style.setProperty('--image-ratio', image.width / image.height);
+  const fallback = document.createElement('p');
+  fallback.className = 'helper';
+  fallback.textContent = 'Không tải được ảnh.';
+  fallback.hidden = true;
+  const caption = document.createElement('figcaption');
+  const label = document.createElement('strong');
+  label.textContent = image.caption ?? '';
+  if (image.caption) caption.append(label);
+  if (image.credit) {
+    const { author, source, license, licenseUrl, changes } = image.credit;
+    const credit = document.createElement('span');
+    const original = document.createElement('a');
+    original.href = source;
+    original.textContent = `Ảnh của ${author}`;
+    const terms = document.createElement('a');
+    terms.href = licenseUrl;
+    terms.textContent = license;
+    credit.append(original, ' · ', terms, ...(changes ? [` · ${changes}`] : []));
+    caption.append(credit);
+  }
+  caption.hidden = !caption.childNodes.length;
+  frame.append(libraryImage(image, { detail: true, onError() {
+    fallback.hidden = false;
+    caption.hidden = true;
+  } }), fallback);
+  if (image.caption) figure.append(caption, frame);
+  else figure.append(frame, caption);
 }
 
 function updateFilters() {
@@ -250,17 +324,20 @@ function renderDetail(place) {
     ? place.description || 'Chưa có mô tả trong dữ liệu demo.'
     : 'Địa điểm này không có trong thư viện. Bạn có thể quay về danh sách để chọn điểm khác.';
   $('library-detail-category').hidden = !place?.category;
-  $('library-detail-demo').hidden = !place;
+  $('library-detail-demo').hidden = !place || !!place.sources?.length;
   $('library-detail-content').hidden = !place;
   $('library-experience-places').hidden = true;
   if (!place) return;
 
   $('library-detail-category').textContent = place.category;
+  $('library-detail-address-row').hidden = !place.address;
+  $('library-detail-address').textContent = place.address ?? '';
+  $('library-detail-area-row').hidden = !!place.sources?.length && !place.area;
   $('library-detail-area').textContent = areaLabels.get(place.area) ?? 'Chưa có khu vực';
   const ward = placeWard(place.id);
   $('library-detail-ward').textContent = ward ? `Phường ${ward.name}` : 'Chưa xác minh';
   $('library-detail-cost').textContent = placeCost(place);
-  $('library-detail-duration').textContent = Number.isFinite(place.duration) ? `${place.duration} phút` : 'Chưa có thời lượng';
+  $('library-detail-duration').textContent = Number.isFinite(place.duration) ? `Khoảng ${place.duration} phút` : 'Chưa có thời lượng';
   $('library-detail-note').hidden = !place.crowd;
   $('library-detail-note').textContent = place.crowd ? `Ghi chú demo: ${place.crowd}.` : '';
   renderHours(place.hours);
@@ -459,7 +536,8 @@ export function setupLibraryActions({ trips, createTrip, tripHash, savedItemsHas
     session = selectedSession;
     sessionParams = params;
     const savedInOrigin = !!experience && !!libraryTripId && trips.get(libraryTripId)?.savedExperienceIds.includes(experience.id);
-    toggle.hidden = !(place || session);
+    const canAdd = !!place || !!session && sessionHasEnd(session);
+    toggle.hidden = !canAdd;
     $('library-add-label').textContent = session ? 'Thêm vào lịch nháp' : 'Thêm vào lịch';
     saveToggle.hidden = !(place || experience) || savedInOrigin;
     saveToggle.classList.toggle('primary-button', !!experience);
@@ -473,7 +551,7 @@ export function setupLibraryActions({ trips, createTrip, tripHash, savedItemsHas
       $('library-back').href = savedItemsHash(libraryTripId, !!experience);
       $('library-back-label').textContent = experience ? 'Quay về trải nghiệm đã lưu' : 'Quay về địa điểm đã lưu';
     }
-    const open = !!(place || session) && params.get('add') === '1';
+    const open = canAdd && params.get('add') === '1';
     setOpen(open);
     if (changedItem) {
       tripSelect.replaceChildren();
@@ -500,6 +578,9 @@ export function renderLibrary(hash, focus, previousHash, renderActions, savedIte
   const experienceId = findExperienceId(path);
   $('library-view').hidden = !isList;
   $('library-detail').hidden = isList;
+  $('library-event-missing-end').hidden = true;
+  let sources;
+  let image;
 
   let addFocus;
   if (isList) {
@@ -529,20 +610,27 @@ export function renderLibrary(hash, focus, previousHash, renderActions, savedIte
     } else renderResults();
   } else if (sessionId) {
     const session = Object.hasOwn(eventSessionById, sessionId) ? eventSessionById[sessionId] : null;
+    sources = session?.sources;
+    image = session && sessionImage(session, placeById[session.placeId]);
     renderSession(session, params);
     addFocus = renderActions(null, params, null, session);
   } else if (experienceId) {
     $('library-event-detail').hidden = true;
     const experience = Object.hasOwn(experienceById, experienceId) ? experienceById[experienceId] : null;
+    image = experience?.image;
     renderExperience(experience);
     renderActions(null, params, experience);
   } else {
     $('library-event-detail').hidden = true;
     const id = findPlaceId(path);
     const place = Object.hasOwn(placeById, id) ? placeById[id] : null;
+    sources = place?.sources;
+    image = place?.image;
     renderDetail(place);
     addFocus = renderActions(place, params);
   }
+  renderSources(sources);
+  renderDetailImage(image);
 
   const heading = $(isList ? 'library-title' : 'library-detail-title');
   document.title = isList ? 'Library · NonLa Wander' : `${heading.textContent} · Library · NonLa Wander`;

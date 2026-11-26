@@ -1,4 +1,4 @@
-import { experiences, libraryPlaces } from './data.js';
+import { experiences, libraryPlaces, placeById } from './data.js';
 
 export const wardSources = {
   boundaries: 'https://www.openstreetmap.org/copyright',
@@ -20,22 +20,23 @@ export const wardById = Object.fromEntries(wards.map((ward) => [ward.id, ward]))
 const wardForPlace = {
   'ho-guom': '00070', 'ngoc-son': '00070', 'dinh-cafe': '00070', 'nha-tho': '00070',
   'ma-may': '00070', 'giang-cafe': '00070', 'pho-gia-truyen': '00070',
-  'dong-xuan': '00070', 'cho-dem': '00070', 'nha-hat-lon': '00082',
+  'dong-xuan': '00070', 'cho-dem': '00070',
 };
 
-export const placeWard = (id) => wardById[wardForPlace[id]];
+const placeWardId = (id) => placeById[id]?.wardId ?? wardForPlace[id];
+export const placeWard = (id) => wardById[placeWardId(id)];
 export const normalizeWardIds = (ids) => Array.isArray(ids)
   ? [...new Set(ids.filter((id) => Object.hasOwn(wardById, id)))] : [];
 
 export function wardLibrary(id) {
-  const places = libraryPlaces.filter((place) => wardForPlace[place.id] === id);
+  const places = libraryPlaces.filter((place) => placeWardId(place.id) === id);
   const ids = new Set(places.map((place) => place.id));
   return { places, experiences: experiences.filter((item) => item.placeIds.some((placeId) => ids.has(placeId))) };
 }
 
 export function wardPreference(ids) {
   const selected = new Set(normalizeWardIds(ids));
-  const matches = ({ id }) => selected.has(wardForPlace[id]);
+  const matches = ({ id }) => selected.has(placeWardId(id));
   return {
     score: (place) => Number(matches(place)) * 4,
     outsideNote(places, reason) {

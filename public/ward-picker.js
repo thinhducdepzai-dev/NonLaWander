@@ -86,12 +86,12 @@ export function setupWardPicker(root, change, openLink) {
         <p class="ward-description"></p>
         <button class="primary-button ward-prioritize" type="button"></button>
         <div class="ward-library" hidden>
-          <p class="helper ward-ideas-label">Món và hoạt động · Library demo</p>
+          <p class="helper ward-ideas-label">Món và hoạt động trong Library</p>
           <ul class="ward-ideas"></ul>
-          <p class="helper">Địa điểm · Library demo</p>
+          <p class="helper">Địa điểm trong Library</p>
           <ul class="ward-places"></ul>
         </div>
-        <p class="helper ward-empty" hidden>Library demo chưa có mục đã xác minh ở phường này.</p>
+        <p class="helper ward-empty" hidden>Library chưa có mục đã đối chiếu cho phường này.</p>
       </section>
     </div>`;
   const $ = (selector) => root.querySelector(selector);

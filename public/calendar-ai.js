@@ -1,6 +1,7 @@
-import { areas, eventSessionById, eventSessions, experienceById, experiencePlaces, experiences, libraryPlaces as places, vibes } from './data.js';
+import { areas, eventSessionById, eventSessions, experienceById, experiencePlaces, experiences, libraryPlaces as places, placeById, vibes } from './data.js';
 import { availableStart, dayCount, dayMinutes, dayStart, minuteInDay, momentLabel, placeCategory, sessionTimeLabel, sessionTiming, timeOf, wallMinute } from './calendar.js';
-import { eventLibraryHref, sessionsInRange } from './library-events.js';
+import { eventLibraryHref, sessionKind, sessionsInRange, sessionTicketLabel } from './library-events.js';
+import { libraryImage } from './library-images.js';
 import { wardPreference } from './wards.js';
 import { setupChatComposer } from './chat-composer.js';
 import { chatDocumentReply } from './chat-documents.js';
@@ -64,9 +65,18 @@ function editInstructions(text) {
 }
 
 function sessionReply(text, calendar, action, isCommand, preferences) {
-  const named = eventSessions.find(({ name }) => text.includes(fold(name)));
-  const refersToSession = named || /\b(su kien nao|cac su kien|buoi dien|suat dien|hoa nhac|suat nao)\b/.test(text);
+  const named = new Set(eventSessions.filter(({ name }) => text.includes(fold(name))).map(({ name }) => name));
+  const refersToSession = named.size || /\b(su kien nao|cac su kien|buoi dien|suat dien|hoa nhac|suat nao)\b/.test(text);
   if (!refersToSession || (action && action !== 'create')) return null;
+  const inTrip = sessionsInRange(calendar);
+  if (named.size > 1) {
+    const sessions = [...named].flatMap((name) => {
+      const available = inTrip.filter((session) => session.name === name);
+      return available.length ? available : eventSessions.filter((session) => session.name === name);
+    }).toSorted((a, b) => sessionTiming(a).start - sessionTiming(b).start).map(({ id }) => id);
+    return { reply: isCommand ? 'Bạn muốn thêm suất nào? Hãy cho mình tên chương trình và giờ bắt đầu.'
+      : 'Đây là các suất đã biết của những chương trình bạn muốn so sánh.', sessions };
+  }
   const dates = [...text.matchAll(sessionDatePattern)];
   const clocks = [...text.matchAll(sessionClockPattern)];
   const days = [...text.matchAll(/\b(?:thu\s+(hai|ba|tu|nam|sau|bay|[2-7])|chu nhat)\b/g)]
@@ -77,7 +87,7 @@ function sessionReply(text, calendar, action, isCommand, preferences) {
   if (!dates.length && /\bngay\s+\d/.test(text)) {
     return { reply: 'Bạn có thể ghi đủ ngày và tháng của suất không? Ví dụ ngày 18/12.' };
   }
-  const matchesName = (session) => named ? session.name === named.name
+  const matchesName = (session) => named.size ? named.has(session.name)
     : !/\bhoa nhac\b/.test(text) || fold(session.name).includes('hoa nhac');
   const date = dates[0];
   const year = date?.[1] ?? date?.[6];
@@ -100,19 +110,19 @@ function sessionReply(text, calendar, action, isCommand, preferences) {
       (!days.length || new Date(start * 60000).getUTCDay() === days[0]);
   };
   const geography = wardPreference(preferences.wardIds);
-  const alternatives = sessionsInRange(calendar).filter(matches)
+  const alternatives = inTrip.filter(matches)
     .toSorted((a, b) => geography.score({ id: b.placeId }) - geography.score({ id: a.placeId }));
   const links = alternatives.map(({ id }) => id);
   if (!links.length && (date || days.length || clock)) {
-    const outside = isCommand && named && clock ? eventSessions.filter(matches) : [];
+    const outside = isCommand && named.size && clock ? eventSessions.filter(matches) : [];
     if (outside.length === 1) return { direct: true, command: { type: 'add-session', sessionId: outside[0].id },
       label: `Thêm “${outside[0].name}”.` };
-    const suggestions = sessionsInRange(calendar).filter(matchesName).map(({ id }) => id);
-    return { reply: suggestions.length ? 'Không có suất demo khớp ngày, thứ và giờ bạn nêu trong chuyến. Bạn có thể xem các suất khác dưới đây.'
-      : 'Không có suất demo khớp ngày, thứ và giờ bạn nêu trong chuyến.', sessions: suggestions };
+    const suggestions = inTrip.filter(matchesName).map(({ id }) => id);
+    return { reply: suggestions.length ? 'Không có suất khớp ngày, thứ và giờ bạn nêu trong chuyến. Bạn có thể xem các suất khác dưới đây.'
+      : 'Không có suất khớp ngày, thứ và giờ bạn nêu trong chuyến.', sessions: suggestions };
   }
-  if (!isCommand) return links.length ? { reply: 'Các suất sự kiện demo trong thời gian chuyến.', sessions: links }
-    : { reply: 'Chưa có suất demo khớp yêu cầu trong thời gian chuyến.' };
+  if (!isCommand) return links.length ? { reply: 'Các suất sự kiện trong thời gian chuyến.', sessions: links }
+    : { reply: 'Chưa có suất trong Library khớp yêu cầu trong thời gian chuyến.' };
   if (alternatives.length > 1) return { reply: 'Có nhiều suất phù hợp. Bạn muốn thêm suất lúc mấy giờ?', sessions: links };
   const exact = alternatives[0];
   if (!exact) return { reply: 'Chưa xác định được suất. Bạn có thể cho mình tên và giờ bắt đầu, hoặc chọn suất trong Library.' };
@@ -142,9 +152,9 @@ export function calendarDemoReply(message, calendar, contextId, preferences = {}
   const parsed = parseCalendarMessage(text === original ? message : text);
   const clocks = text.match(new RegExp(clockPattern.source, 'g')) ?? [];
   const clockSpecified = clocks.length > 0;
-  if (isCommand && clocks.length > 1) return { reply: 'Bạn muốn dùng mốc giờ nào trước? Bản demo xử lý từng thay đổi một.' };
   const eventAnswer = sessionReply(text, calendar, instruction?.action, isCommand, preferences);
   if (eventAnswer) return eventAnswer;
+  if (isCommand && clocks.length > 1) return { reply: 'Bạn muốn dùng mốc giờ nào trước? Bản demo xử lý từng thay đổi một.' };
   const menu = experiences.find(({ name }) => text.includes(fold(name)));
   const matchedPlaces = places.filter(({ name }) => text.includes(fold(name)));
   const match = matchedPlaces.length === 1 ? matchedPlaces[0] : null;
@@ -294,15 +304,25 @@ export function setupCalendarChat({ getTrip, getCalendar, save, preview, apply, 
           button.type = 'button';
           button.dataset.chatPlace = id;
           button.textContent = item.name;
+          if (item.image) {
+            button.classList.add('chat-place-with-image');
+            button.prepend(libraryImage(item.image));
+          }
           row.append(button);
         }
         for (const id of sessions ?? []) {
           const session = eventSessionById[id];
           if (!session) continue;
           const link = document.createElement('a');
-          link.className = 'text-button chat-session-link';
+          link.className = 'text-button chat-session-link chat-event-link';
           link.href = eventLibraryHref({ sessionId: id, tripId: trip.id });
-          link.textContent = `${session.name} · ${sessionTimeLabel(session)}`;
+          const title = document.createElement('span');
+          title.textContent = session.name;
+          const time = document.createElement('span');
+          time.textContent = sessionTimeLabel(session, true);
+          const facts = document.createElement('small');
+          facts.textContent = [placeById[session.placeId]?.name, sessionTicketLabel(session), sessionKind(session)].filter(Boolean).join(' · ');
+          link.append(title, time, facts);
           row.append(link);
         }
         for (const id of documentPlaces ?? []) {

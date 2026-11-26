@@ -1,8 +1,15 @@
-import { dateOf, dayMinutes, sessionTiming, wallMinute } from './calendar.js';
+import { dateOf, dayMinutes, sessionHasEnd, sessionTiming, wallMinute } from './calendar.js';
 import { eventSessions } from './data.js';
 
 const hanoiDate = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short' });
+const currency = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
 export const hanoiToday = (now = new Date()) => hanoiDate.format(now);
+export const sessionKind = (session) => session.sources?.length ? 'Lịch công bố' : 'Sự kiện demo';
+
+export function sessionTicketLabel(session) {
+  if (session.price === 0) return 'Miễn phí';
+  return session.price == null ? 'Chưa biết giá vé' : `${currency.format(session.price)}/người`;
+}
 
 export function libraryEventRange(from, to) {
   const start = wallMinute(from, '00:00');
@@ -13,7 +20,7 @@ export function libraryEventRange(from, to) {
 export function sessionsInRange({ start, end }) {
   return eventSessions.filter((session) => {
     const timing = sessionTiming(session);
-    return timing.start < end && timing.end > start;
+    return timing.start < end && (sessionHasEnd(session) ? timing.end > start : timing.start >= start);
   }).toSorted((a, b) => sessionTiming(a).start - sessionTiming(b).start);
 }
 

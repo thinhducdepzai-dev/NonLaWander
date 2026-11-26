@@ -429,9 +429,9 @@ export function setupCalendarView({ trips, updated, tripHash, savedHref, announc
     renderGrid(true);
     $('calendar-day-picker').querySelector('[aria-pressed="true"]')?.focus();
   });
-  compact.addEventListener('change', () => { if (!workspace.hidden) renderGrid(true); });
+  compact.addEventListener('change', () => { if (trip && !workspace.hidden) renderGrid(true); });
   widePanel.addEventListener('change', () => {
-    if (!workspace.hidden) renderPanels();
+    if (trip && !workspace.hidden) renderPanels();
   });
 
   function currentEvent(id) {

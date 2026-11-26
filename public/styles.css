@@ -330,7 +330,23 @@ main.wrapper { flex: 1; }
   background: var(--card);
   text-decoration: none;
 }
-.library-place-icon { grid-area: icon; display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: var(--small-radius); background: var(--accent-soft); color: var(--accent-strong); }
+.library-card-media { grid-area: icon; display: grid; place-items: center; }
+.library-place-icon { display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: var(--small-radius); background: var(--accent-soft); color: var(--accent-strong); }
+.library-places:has(.library-place-with-image) .library-place {
+  grid-template-columns: clamp(5rem, 23vw, 9rem) minmax(0, 1fr) auto;
+  grid-template-areas: 'icon info next' 'icon price next';
+  align-content: center;
+  row-gap: .2rem;
+}
+.library-places:has(.library-place-with-image) .library-card-media {
+  aspect-ratio: 3 / 2;
+  border-radius: var(--small-radius);
+  background: var(--accent-soft);
+  overflow: hidden;
+}
+.library-card-media img, .library-detail-image-frame img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.library-card-media .library-image-poster, .library-detail-image-frame .library-image-poster { object-fit: contain; }
+.library-card-caption { display: block; margin-top: .2rem; color: var(--muted); font-size: .8rem; }
 .library-place-info { grid-area: info; min-width: 0; overflow-wrap: anywhere; }
 .library-place h3 { color: var(--accent-strong); font: 700 1.15rem/1.25 var(--serif); }
 .library-place-meta { margin-top: .18rem; color: var(--muted); font-size: .8125rem; }
@@ -343,6 +359,20 @@ main.wrapper { flex: 1; }
 #library-empty { margin-top: 1rem; }
 #library-detail .back-link { gap: .35rem; margin-bottom: .75rem; color: var(--accent-strong); }
 .library-heading > .library-detail-category { margin: 0 0 .45rem; color: var(--accent-strong); font-size: .9rem; font-weight: 700; }
+.library-detail-image { max-width: 42rem; margin: 1.25rem 0 0; }
+.library-detail-image-frame {
+  display: grid;
+  place-items: center;
+  aspect-ratio: var(--image-ratio);
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+}
+.library-detail-poster-frame { width: min(100%, calc(70svh * var(--image-ratio))); }
+.library-detail-image figcaption { display: flex; flex-wrap: wrap; gap: 0 .6rem; align-items: baseline; margin-top: .2rem; color: var(--muted); font-size: .8125rem; }
+.library-detail-image figcaption:first-child { margin: 0 0 .3rem; }
+.library-detail-image figcaption strong { color: var(--ink); }
+.library-detail-image figcaption a { display: inline-flex; align-items: center; min-height: 2rem; text-underline-offset: .18em; }
 .library-detail-content { max-width: 42rem; margin-top: 1.5rem; padding: clamp(1rem, 3vw, 1.5rem); border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
 .library-detail-content dl { display: grid; margin-top: .8rem; }
 .library-detail-content dl > div { display: grid; gap: .18rem .8rem; padding-block: .65rem; border-top: 1px solid var(--line); }
@@ -352,6 +382,11 @@ main.wrapper { flex: 1; }
 #library-detail-hours li + li { margin-top: .35rem; }
 #library-detail-hours li span { display: block; font-size: .8125rem; font-weight: 500; }
 .library-detail-note { padding-top: .65rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .875rem; }
+.library-sources { max-width: 42rem; margin-top: 1.25rem; padding-top: .9rem; border-top: 1px solid var(--line); }
+.library-sources h2 { font: 700 1rem var(--sans); }
+.library-sources ul { margin: 0; padding: 0; list-style: none; }
+#library-detail .library-sources a { display: inline-flex; min-height: 2.75rem; margin-bottom: 0; text-decoration: underline; text-underline-offset: .2em; }
+.library-sources li + li { margin-top: .5rem; }
 .library-detail-actions { display: flex; flex-wrap: wrap; gap: .65rem; margin-top: 1.25rem; }
 .library-detail-actions:not(:has(> button:not([hidden]))) { display: none; }
 .library-detail-actions .primary-button { width: auto; min-height: 44px; }
@@ -1116,6 +1151,8 @@ body.is-calendar main.wrapper { --wrap: 1400px; }
 .calendar-messages .calendar-message-user { margin-inline-start: 1.65rem; background: var(--accent-soft); border-bottom-right-radius: 3px; }
 .calendar-messages .calendar-message-demo { margin-inline-end: 1.65rem; border-bottom-left-radius: 3px; }
 .calendar-messages .text-button { margin: .45rem .4rem 0 0; min-height: 2.75rem; text-align: start; }
+.calendar-messages .chat-place-with-image { gap: .55rem; }
+.chat-place-with-image img { width: 3rem; height: 2rem; object-fit: cover; border-radius: var(--small-radius); }
 .calendar-proposal { margin-top: .75rem; }
 .calendar-proposal h3 { font: 700 1rem var(--sans); }
 .calendar-proposal .calendar-buttons { margin-top: .55rem; }
@@ -1221,7 +1258,7 @@ body.is-calendar main.wrapper { --wrap: 1400px; }
 .library-event-filters :is(button, .field-error) { grid-column: 1 / -1; }
 .library-event-filters input { padding-inline: .55rem; min-width: 0; }
 .library-event-count { margin: .8rem 0 .6rem; }
-.event-card-time { color: var(--accent-strong); font-weight: 750; font-size: .95rem; margin-bottom: .2rem; }
+.event-card-time { color: var(--accent-strong); font-weight: 750; font-size: .95rem; margin-block: .15rem .2rem; }
 .event-detail-facts { display: grid; gap: .65rem; padding: .9rem 1rem; margin-block: 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
 .event-detail-facts dt { font-size: .85rem; color: var(--muted); }
 .event-detail-facts dd { margin: 0; font-weight: 650; }
@@ -1229,6 +1266,8 @@ body.is-calendar main.wrapper { --wrap: 1400px; }
 .calendar-session-status { margin-block: .4rem; padding: .5rem .75rem; border-radius: var(--small-radius); background: var(--accent-soft); color: var(--accent-strong); }
 #calendar-library-events, .chat-session-link { text-decoration: none; }
 .chat-session-link { margin-block-start: .4rem; width: 100%; min-height: 2.75rem; white-space: normal; text-align: start; }
+.chat-event-link { display: grid; justify-content: start; gap: .15rem; }
+.chat-event-link small { color: var(--muted); font-weight: 500; }
 .calendar-event[data-category="session"] { border-color: #3f7262; background: var(--accent-soft); }
 @media (min-width: 710px) {
   .library-filters.library-event-filters { grid-template-columns: minmax(0, 13rem) minmax(0, 13rem) auto; justify-content: start; align-items: end; }

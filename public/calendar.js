@@ -33,9 +33,17 @@ export function sessionTiming(session) {
   return { start: wallMinute(session.date, session.starts), end: wallMinute(session.endDate ?? session.date, session.ends) };
 }
 
-export function sessionTimeLabel(session) {
+export const sessionNeedsEnd = 'Chưa có giờ kết thúc từ nguồn. Suất này chưa thể thêm vào lịch cố định.';
+export const sessionHasEnd = (session) => {
   const { start, end } = sessionTiming(session);
-  return `${momentLabel(start)}–${dayOf(start) === dayOf(end) ? timeOf(end) : momentLabel(end)}`;
+  return validCalendarRange(start, end);
+};
+
+export function sessionTimeLabel(session, withYear = false) {
+  const { start, end } = sessionTiming(session);
+  const moment = (minute) => `${calendarDate(minute, true)}${withYear ? `/${dateOf(minute).slice(0, 4)}` : ''} · ${timeOf(minute)}`;
+  if (!sessionHasEnd(session)) return `${moment(start)} · Chưa có giờ kết thúc`;
+  return `${moment(start)}–${dayOf(start) === dayOf(end) ? timeOf(end) : moment(end)}`;
 }
 
 export const calendarCostKey = (event) => event.sessionId ? `session:${event.sessionId}` : event.placeId;
@@ -200,6 +208,7 @@ export function calendarCommand(calendar, command, budget) {
     case 'add-session': {
       const session = Object.hasOwn(eventSessionById, command.sessionId) && eventSessionById[command.sessionId];
       if (!session) return { error: 'Không tìm thấy suất sự kiện trong Library.' };
+      if (!sessionHasEnd(session)) return { error: sessionNeedsEnd };
       if (calendar.events.some((event) => event.sessionId === session.id)) return { error: 'Suất này đã có trong lịch nháp.' };
       next = { ...sessionTiming(session), id: newVisitId(), sessionId: session.id,
         title: session.name, category: 'session', placeId: session.placeId, fixed: true };

@@ -1,3 +1,5 @@
+import { applyLibraryUpdates, sourcedPlaces, sourcedSessions } from './library-sources.js';
+
 export const periods = [
   { id: 'morning', label: 'Sáng', icon: 'sunrise', start: '08:00', end: '11:00' },
   { id: 'afternoon', label: 'Chiều', icon: 'sun', start: '14:00', end: '17:00' },
@@ -27,7 +29,7 @@ const daily = (start, end) => [{ start, end }];
 const weekend = [0, 6];
 
 // Toàn bộ thời gian, chi phí, độ đông và tọa độ bên dưới là dữ liệu demo.
-export const places = [
+const demoPlaces = [
   { id: 'ho-guom', name: 'Dạo quanh Hồ Gươm', category: 'Dạo phố', icon: 'leaf', area: 'lake', vibes: ['slow', 'photo'], cost: 0, duration: 55, lat: 21.02884, lon: 105.85244, hours: daily('06:00', '22:00'), crowd: 'Đông hơn vào tối cuối tuần' },
   { id: 'ngoc-son', name: 'Đền Ngọc Sơn', category: 'Văn hóa', icon: 'landmark', area: 'lake', vibes: ['culture', 'photo'], cost: 30_000, duration: 50, lat: 21.03070, lon: 105.85249, hours: daily('08:00', '17:30'), crowd: 'Vừa phải vào buổi sáng' },
   { id: 'dinh-cafe', name: 'Cà phê Đinh', category: 'Cà phê', icon: 'coffee', area: 'lake', vibes: ['cafe', 'slow'], cost: 55_000, duration: 55, lat: 21.03164, lon: 105.85206, hours: daily('08:00', '22:00'), crowd: 'Thường đông vào buổi chiều' },
@@ -42,18 +44,19 @@ export const places = [
 
 export const wardLibraryPlaces = [
   { id: 'nha-hat-lon', name: 'Nhà hát Lớn Hà Nội', category: 'Kiến trúc', icon: 'landmark', vibes: ['culture', 'photo'],
-    duration: 35, lat: 21.02417, lon: 105.85744, description: 'Ngắm kiến trúc Nhà hát Lớn từ quảng trường, tại số 1 Tràng Tiền. Lượt ghé demo chỉ tính thời gian tham quan bên ngoài.' },
+    duration: 35, lat: 21.02417, lon: 105.85744, description: 'Ngắm kiến trúc Nhà hát Lớn từ quảng trường. Thời lượng gợi ý dành cho lượt ghé bên ngoài.' },
 ];
 
-export const libraryPlaces = [...places, ...wardLibraryPlaces];
+export const libraryPlaces = applyLibraryUpdates([...demoPlaces, ...wardLibraryPlaces], sourcedPlaces);
 export const placeById = Object.fromEntries(libraryPlaces.map((place) => [place.id, place]));
+export const places = demoPlaces.map(({ id }) => placeById[id]);
 // Fictional times and tickets for testing. Venue names refer to existing Library entries.
-export const eventSessions = [
+export const eventSessions = applyLibraryUpdates([
   { id: 'hoa-nhac-20261218-1730', name: 'Hòa nhạc cuối tuần', date: '2026-12-18', starts: '17:30', ends: '19:00', placeId: 'nha-hat-lon', price: 120_000 },
   { id: 'hoa-nhac-20261218-1930', name: 'Hòa nhạc cuối tuần', date: '2026-12-18', starts: '19:30', ends: '21:00', placeId: 'nha-hat-lon', price: 180_000 },
   { id: 'ky-uc-pho-20261219-1600', name: 'Ký ức phố cổ', date: '2026-12-19', starts: '16:00', ends: '17:00', placeId: 'ma-may', price: 0 },
   { id: 'dem-nghe-thuat-20261219-2330', name: 'Đêm nghệ thuật', date: '2026-12-19', starts: '23:30', endDate: '2026-12-20', ends: '00:30', placeId: 'nha-hat-lon' },
-];
+], sourcedSessions);
 export const eventSessionById = Object.fromEntries(eventSessions.map((session) => [session.id, session]));
 export const periodById = Object.fromEntries(periods.map((period) => [period.id, period]));
 

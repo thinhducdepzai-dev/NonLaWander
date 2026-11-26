@@ -145,7 +145,31 @@ test('guided planning prefers a ward, and explains when matching sessions do not
   assert.equal(skipped.calendar.events.length, 0);
   assert.match(skipped.notes.join(' '), /ngoài thời gian chuyến/);
   const absent = planCalendarDraft({ ...range, start: at('2026-12-21', '09:00'), end: at('2026-12-21', '19:00'), events: [] }, answers);
-  assert.match(absent.notes.join(' '), /Chưa có suất demo/);
+  assert.match(absent.notes.join(' '), /Chưa có suất trong Library/);
+});
+
+test('chat lists both named programs in either order or a comparison without adding a session', () => {
+  const { store, storage } = fixture();
+  const { id, draft } = trip(store);
+  const calendar = calendarOf(draft);
+  const messages = [];
+  for (const text of [
+    'Thêm Ký ức phố cổ hoặc Đêm nghệ thuật',
+    'Thêm Đêm nghệ thuật hoặc Ký ức phố cổ',
+    'So sánh Ký ức phố cổ và Đêm nghệ thuật',
+  ]) {
+    const answer = calendarDemoReply(text, calendar);
+    assert.match(answer.reply, text.startsWith('Thêm') ? /muốn thêm suất nào/ : /so sánh/);
+    assert.deepEqual(answer.sessions, [free, unknown]);
+    assert.equal(answer.command, undefined);
+    messages.push({ author: 'you', text }, { author: 'demo', text: answer.reply, sessions: answer.sessions });
+    store.saveConversation(id, { messages });
+    assert.deepEqual(createTripStore(storage).get(id).draft, draft);
+  }
+  const narrowed = { ...calendar, end: at('2026-12-19', '18:00') };
+  const choice = calendarDemoReply('Thêm Ký ức phố cổ hoặc Đêm nghệ thuật', narrowed);
+  assert.deepEqual(choice.sessions, [free, unknown]);
+  assert.equal(choice.command, undefined);
 });
 
 test('chat matches the Hanoi start date for consultations and writes, including the out-of-trip lookup', () => {

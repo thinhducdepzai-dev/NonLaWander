@@ -21,6 +21,16 @@ Home, My Projects và Library dùng thanh điều hướng chung trên đầu tr
 
 Lưu một trải nghiệm ghi nhận ý muốn thử. Lưu một địa điểm ghi nhận nơi cụ thể. Hai danh sách lưu riêng và có thể giữ mục khi chuyến chưa có thời gian. Khách chọn một địa điểm cụ thể trước khi đưa trải nghiệm vào lịch. Khi chọn Thêm vào lịch, giữ địa điểm và chuyến đã chọn qua các bước còn thiếu. Tạo một lượt mới hoặc gắn địa điểm vào sự kiện hiện có tùy điểm bắt đầu của thao tác.
 
+### Nhập thử dữ liệu có nguồn
+
+II.7 lưu nguồn và ngày đối chiếu theo từng mục trong `public/library-sources.js`. [Công văn 2935 của Sở Văn hóa và Thể thao Hà Nội](https://sovhtt.hanoi.gov.vn/wp-content/uploads/2025/07/cv-2935-svhtt-qlnt.pdf), đối chiếu ngày 26/11/2026, xác nhận Nhà hát Lớn Hà Nội ở số 1 Tràng Tiền, phường Cửa Nam. Mục giữ ID `nha-hat-lon`. Chi phí và giờ mở cửa chưa biết. Thời lượng ghé ngoài 35 phút và tọa độ là dữ liệu ước tính của ứng dụng. Liên kết Chụp ảnh thuộc dữ liệu demo trước đó.
+
+Công văn cũng ghi giờ được chấp thuận của suất Lũy đá bất tử tại Nhà hát Lớn lúc 20:00 ngày 27/07/2025 theo giờ Hà Nội. Library hiển thị đây là lịch công bố. Giờ kết thúc, giá vé và việc suất diễn có thực sự diễn ra chưa được xác nhận. Suất chỉ hiện khi giờ bắt đầu thuộc khoảng ngày đang lọc và chưa thể thêm vào lịch cố định qua Library hay AI. Bốn suất tháng 12/2026 vẫn mang nhãn Sự kiện demo.
+
+II.7.e lưu ảnh đại diện tách khỏi nguồn xác minh dữ liệu. Ảnh mặt tiền Nhà hát Lớn của [The Hanoian trên Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Nh%C3%A0_h%C3%A1t_L%E1%BB%9Bn_H%C3%A0_N%E1%BB%99i_-_2022-09-02_02.jpg) được thu nhỏ sang WebP và giữ giấy phép [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Suất Lũy đá bất tử dùng cùng ảnh với chú thích “Địa điểm tổ chức” cho đến khi có poster đủ quyền sử dụng. Trên thẻ, ảnh chiếm khung 3:2 cạnh thông tin. Poster giữ toàn khung khi thu nhỏ và có ảnh lớn trong chi tiết. Mục thiếu ảnh dùng biểu tượng có sẵn. Ảnh thẻ tải khi gần khung nhìn và có dự phòng khi lỗi. Chat dùng thumbnail cho gợi ý địa điểm có ảnh.
+
+Khi nhập đợt mới, phân loại nguồn theo chi nhánh, món hoặc hoạt động, và suất. Đối chiếu tên và địa chỉ trước khi sửa khóa ID hiện có trong `sourcedPlaces`. Một chi nhánh khác địa chỉ dùng khóa riêng. Mỗi suất dùng khóa riêng trong `sourcedSessions`, giữ khóa khi cập nhật cùng một suất và dẫn tới ID đúng nơi tổ chức. Cập nhật cùng khóa thay thông tin của mục hiện có. Nguồn ghi tên trang hoặc đơn vị, URL, ngày kiểm tra ISO và các trường đã đối chiếu. Chỉ cập nhật quan hệ món, hoạt động và phường khi có căn cứ. `cost` là chi phí dự kiến cho một người trong cả lượt ghé, `price` của suất là giá vé mỗi người. Giá từng món ghi riêng trong đối chiếu nguồn. Giá chưa biết để trống, giá miễn phí dùng `0`. Chạy `npm test` sau mỗi đợt nhập.
+
 ### Sự kiện theo ngày
 
 Library có mục Sự kiện. Từ điều hướng chính, mặc định lọc từ hôm nay theo giờ Hà Nội đến hết ngày thứ 30 tiếp theo. Từ trong chuyến, mặc định dùng các ngày có trong khung chuyến. Một suất xuất hiện nếu giao với khoảng ngày đang xem, kể cả khi kéo qua nửa đêm. Quay lại từ chi tiết giữ khoảng ngày. Mỗi thẻ hiện tên, ngày, giờ, nơi tổ chức, cộng với giá vé mỗi người, miễn phí hoặc chưa biết giá.
@@ -45,7 +55,7 @@ Hai công cụ chạy bằng dữ liệu demo trong trình duyệt, không gọi
 
 Hội thoại tự do lưu theo từng chuyến. Câu hỏi tư vấn, kể cả câu có chữ “thêm”, chỉ nhận câu trả lời. Lệnh rõ về một đối tượng có thể cập nhật nháp sau khi bộ tính lịch xác nhận hợp lệ. Hỏi lại khi thiếu tên nơi, ngày, giờ hoặc có nhiều đối tượng phù hợp. Khi xung đột, nêu lý do và giữ nháp. Khi ghi thành công, nêu thay đổi và cho hoàn tác. Đề xuất dùng để cân nhắc giữ cách xem trước và kiểm tra lại lịch trước khi ghi.
 
-Với câu hỏi về sự kiện, chat liệt kê các suất giao với thời gian chuyến và liên kết chi tiết. Lệnh thêm đủ thông tin dùng cùng thao tác kiểm tra và lưu như Library. Khi còn nhiều suất phù hợp, hỏi khách chọn giờ. Câu hỏi tư vấn giữ nguyên nháp.
+Với câu hỏi về sự kiện, chat liệt kê các suất giao với thời gian chuyến và liên kết chi tiết. Lệnh thêm đủ thông tin dùng cùng thao tác kiểm tra và lưu như Library. Khi còn nhiều suất cùng tên phù hợp, hỏi khách chọn giờ. Khi khách nêu nhiều tên, chat liệt kê các chương trình kèm giờ và hỏi chọn suất trước khi ghi. Câu hỏi so sánh hoặc tư vấn chỉ trả thông tin và giữ nguyên nháp.
 
 Nếu khách nêu ngày cụ thể, chat khớp theo ngày bắt đầu của suất ở Hà Nội, kể cả khi kiểm tra ứng viên ngoài khung chuyến. Ngày, thứ và giờ đều phải khớp trước khi thêm. Các suất khác có thể xuất hiện dưới dạng liên kết để khách tự xem. Bộ lọc theo ngày của Library vẫn dựa trên phần thời gian giao nhau.
 
