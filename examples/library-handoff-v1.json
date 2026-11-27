@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "candidates": [
+    {
+      "id": "sample:nha-hat-lon-ha-noi",
+      "name": "Nhà hát Lớn Hà Nội",
+      "address": "Số 1 Tràng Tiền, phường Cửa Nam, Hà Nội",
+      "sources": [
+        {
+          "url": "https://sovhtt.hanoi.gov.vn/wp-content/uploads/2025/07/cv-2935-svhtt-qlnt.pdf",
+          "title": "Công văn 2935 của Sở Văn hóa và Thể thao Hà Nội",
+          "checkedOn": "2026-11-26",
+          "supports": ["name", "address"],
+          "note": "Mục 3 ghi địa điểm tổ chức."
+        }
+      ],
+      "image": {
+        "referenceUrl": "https://commons.wikimedia.org/wiki/File:Nh%C3%A0_h%C3%A1t_L%E1%BB%9Bn_H%C3%A0_N%E1%BB%99i_-_2022-09-02_02.jpg",
+        "displayPermission": {
+          "basis": "license",
+          "evidenceUrl": "https://commons.wikimedia.org/wiki/File:Nh%C3%A0_h%C3%A1t_L%E1%BB%9Bn_H%C3%A0_N%E1%BB%99i_-_2022-09-02_02.jpg#Licensing",
+          "license": "CC BY-SA 4.0",
+          "author": "The Hanoian"
+        }
+      }
+    },
+    {
+      "id": "fixture:ca-phe-minh-hoa-a",
+      "fixture": true,
+      "name": "Cà phê Minh Họa",
+      "branch": "Chi nhánh A",
+      "address": "10 phố Giả Lập, Hà Nội (dữ liệu thử)",
+      "sources": [
+        { "url": "https://example.invalid/branch-a", "supports": ["name", "branch", "address"] }
+      ]
+    },
+    {
+      "id": "fixture:ca-phe-minh-hoa-b",
+      "fixture": true,
+      "name": "Cà phê Minh Họa",
+      "branch": "Chi nhánh B",
+      "address": "22 phố Giả Lập, Hà Nội (dữ liệu thử)",
+      "sources": [
+        { "url": "https://example.invalid/branch-b", "supports": ["name", "branch", "address"] }
+      ],
+      "image": { "referenceUrl": "https://example.invalid/photo-b" }
+    },
+    {
+      "id": "fixture:ca-phe-giang-dia-chi",
+      "fixture": true,
+      "name": "Cà phê Giảng",
+      "address": "12 phố Giả Lập, Hà Nội (dữ liệu thử)",
+      "sources": [
+        { "url": "https://example.invalid/address-only", "supports": ["address"], "note": "Tình huống giả lập nguồn chỉ hỗ trợ địa chỉ." }
+      ]
+    },
+    {
+      "id": "fixture:kem-trang-tien-thuong-hieu",
+      "fixture": true,
+      "name": "Kem Tràng Tiền",
+      "sources": [
+        { "url": "https://example.invalid/brand-only", "supports": ["name"], "note": "Tình huống giả lập nguồn chỉ nhắc thương hiệu." }
+      ]
+    }
+  ]
+}

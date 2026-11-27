@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "node server.mjs",
     "start": "node server.mjs",
+    "library:review": "node scripts/review-library-handoff.mjs",
     "test": "node --test"
   }
 }
