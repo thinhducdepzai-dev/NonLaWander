@@ -14,6 +14,12 @@ Mở [http://127.0.0.1:3000](http://127.0.0.1:3000). Có thể đổi cổng b�
 npm test
 ```
 
+## Duyệt kết quả Discovery trên máy local
+
+Mở [Duyệt Discovery](http://127.0.0.1:3000/library-review.html) sau khi chạy `npm run dev`. Có thể mở từ Library chung. Dùng **Chọn tệp bàn giao** để xem trước tệp `../NonLa-Discovery/output/pilot-ca-phe-trung-i3d/library-handoff-v1.json`. Chọn các mục muốn ghi, chọn chi nhánh khi cần rồi bấm **Duyệt và thêm vào Library**. Dữ liệu fixture được xem trước và bị chặn khi ghi.
+
+Danh mục được lưu trong `localStorage` của trình duyệt tại cùng địa chỉ web. Library chung và các chuyến đều thấy kết quả sau khi tải lại. Mỗi chuyến vẫn có thao tác lưu riêng. Màn duyệt giữ ngày và đoạn trích nguồn, giữ ID và tọa độ của chi nhánh hiện có. Mục thiếu tọa độ hiện **Chờ ghim vị trí**. Ảnh trong tệp được liên kết để tham khảo.
+
 ## Thử lịch mẫu
 
 1. Từ **Lịch của tôi**, bấm **Tạo chuyến đi** rồi chọn **Lịch mẫu** để nạp ngày 27–29/11/2026. Lịch chỉ chọn sáng 27/11 (08:00–11:00) và chiều 28/11 (14:00–17:00). Ngày 29/11 nghỉ cả ngày.

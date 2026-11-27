@@ -174,7 +174,7 @@ function conflicts(calendar, budget) {
     }
   }
   for (const { from, to, minutes, explicit, unknown } of calendarLegs(events)) {
-    if (explicit || unknown) continue;
+    if (explicit || unknown || minutes === null) continue;
     const busy = events.filter((event) => event.id !== from.id && event.id !== to.id && event.start < to.start && event.end > from.end);
     const open = busy.reduce((gap, event) => gap - Math.max(0, Math.min(to.start, event.end) - Math.max(from.end, event.start)), to.start - from.end);
     if (open < minutes) issues.push(issue('walk', [from.id, to.id, ...busy.map(({ id }) => id)],

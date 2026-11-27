@@ -92,6 +92,7 @@ export function openingHours(place, date) {
 }
 
 export function walkMinutes(from, to) {
+  if (![from.lat, from.lon, to.lat, to.lon].every(Number.isFinite)) return null;
   if (from.id && from.id === to.id) return 0;
   const rad = Math.PI / 180;
   const x = (from.lon - to.lon) * rad * Math.cos((from.lat + to.lat) * rad / 2);

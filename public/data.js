@@ -1,4 +1,5 @@
 import { applyLibraryUpdates, sourcedPlaces, sourcedSessions } from './library-sources.js';
+import { materializeLibrary, readLibrary } from './library-import.js';
 
 export const periods = [
   { id: 'morning', label: 'Sáng', icon: 'sunrise', start: '08:00', end: '11:00' },
@@ -47,7 +48,15 @@ export const wardLibraryPlaces = [
     duration: 35, lat: 21.02417, lon: 105.85744, description: 'Ngắm kiến trúc Nhà hát Lớn từ quảng trường. Thời lượng gợi ý dành cho lượt ghé bên ngoài.' },
 ];
 
-export const libraryPlaces = applyLibraryUpdates([...demoPlaces, ...wardLibraryPlaces], sourcedPlaces);
+export const baseLibraryPlaces = applyLibraryUpdates([...demoPlaces, ...wardLibraryPlaces], sourcedPlaces);
+function loadLibrary() {
+  try {
+    return materializeLibrary(baseLibraryPlaces, readLibrary(globalThis.localStorage));
+  } catch {
+    return baseLibraryPlaces;
+  }
+}
+export const libraryPlaces = loadLibrary();
 export const placeById = Object.fromEntries(libraryPlaces.map((place) => [place.id, place]));
 export const places = demoPlaces.map(({ id }) => placeById[id]);
 // Fictional times and tickets for testing. Venue names refer to existing Library entries.

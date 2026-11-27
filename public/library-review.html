@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Duyệt Discovery · NonLa Wander</title>
+  <link rel="icon" href="/assets/nonla.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/library-review.css">
+  <script type="module" src="/library-review.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#review-main">Đến nội dung chính</a>
+  <header class="site-header">
+    <div class="nav-shell">
+      <a class="app-brand" href="/#home"><span class="app-brand-mark" aria-hidden="true">N</span><strong>NonLa Wander</strong></a>
+      <nav class="app-nav" aria-label="Điều hướng chính"><a href="/#library">Library</a></nav>
+    </div>
+  </header>
+  <main id="review-main" class="wrapper review-page" tabindex="-1">
+    <header class="library-heading">
+      <h1>Duyệt Discovery</h1>
+      <p>Chọn ứng viên để thêm vào Library dùng chung giữa các chuyến trên trình duyệt này.</p>
+    </header>
+    <section class="review-file" aria-labelledby="review-file-label">
+      <label id="review-file-label" for="review-file">Chọn tệp bàn giao</label>
+      <input id="review-file" type="file" accept=".json,application/json" aria-describedby="review-file-help">
+      <p id="review-file-help" class="helper">Chọn tệp library-handoff-v1.json để xem trước.</p>
+    </section>
+    <p id="review-error" class="field-error" role="alert" hidden></p>
+    <p id="review-message" role="status" aria-atomic="true"></p>
+    <form id="review-form" hidden>
+      <div class="review-list-heading">
+        <h2 id="review-results-title">Ứng viên trong tệp</h2>
+        <p id="review-total" class="helper"></p>
+      </div>
+      <ol id="review-rows" aria-labelledby="review-results-title"></ol>
+      <div class="review-actions">
+        <p id="review-selected" role="status" aria-atomic="true">Đã chọn 0</p>
+        <button id="review-publish" type="submit" class="primary-button" disabled>Duyệt và thêm vào Library</button>
+      </div>
+    </form>
+    <section id="review-pending-pins" aria-labelledby="review-pins-title" hidden>
+      <h2 id="review-pins-title">Chờ ghim vị trí</h2>
+      <ul id="review-pins"></ul>
+    </section>
+  </main>
+</body>
+</html>

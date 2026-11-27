@@ -328,7 +328,7 @@ export function setupCalendarView({ trips, updated, tripHash, savedHref, announc
   function renderLegs() {
     const notes = calendarLegs(calendar.events).map(({ from, to, minutes, explicit, unknown }) =>
       `${from.title} → ${to.title} · ${explicit ? `Đã dành ${explicit.end - explicit.start} phút trong “${explicit.title}”`
-        : unknown ? 'Chưa xác định chặng đi bộ' : `Khoảng ${minutes} phút đi bộ`}`);
+        : unknown || minutes === null ? 'Chưa xác định chặng đi bộ' : `Khoảng ${minutes} phút đi bộ`}`);
     for (const event of calendar.events) {
       if (event.category === 'travel') {
         const travel = travelEstimate(event);

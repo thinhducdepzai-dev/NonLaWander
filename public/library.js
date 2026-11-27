@@ -4,6 +4,8 @@ import { icon } from './icons.js';
 import { hasKnownCost } from './planner.js';
 import { placeWard } from './wards.js';
 import { eventDateFilters, eventLibraryHref, libraryEventRange, sessionKind, sessionsInRange, sessionTicketLabel } from './library-events.js';
+import { fields } from './library-handoff.js';
+import { isLocalLibrary } from './library-import.js';
 import { libraryImage, sessionImage } from './library-images.js';
 
 const $ = (id) => document.getElementById(id);
@@ -223,19 +225,24 @@ function renderSession(session, params) {
 
 function renderSources(sources = []) {
   $('library-sources').hidden = !sources.length;
-  $('library-source-list').replaceChildren(...sources.map(({ title, url, checkedOn, coverage }) => {
+  $('library-source-list').replaceChildren(...sources.map(({ title, url, checkedOn, coverage, supports, note }) => {
     const item = document.createElement('li');
     const link = document.createElement('a');
     link.className = 'back-link';
     link.href = url;
-    link.textContent = title;
+    link.textContent = title ?? new URL(url).hostname;
     const details = document.createElement('p');
     details.className = 'helper';
-    const date = document.createElement('time');
-    date.dateTime = checkedOn;
-    date.textContent = dateLabel(checkedOn);
-    details.append('Đối chiếu ', date, ` · ${coverage}`);
-    item.append(link, details);
+    if (checkedOn) {
+      const date = document.createElement('time');
+      date.dateTime = checkedOn;
+      date.textContent = dateLabel(checkedOn);
+      details.append('Đối chiếu ', date);
+    }
+    const context = [coverage ?? supports?.map((key) => fields[key]).join(', '), note].filter(Boolean).join(' · ');
+    if (context) details.append(checkedOn ? ` · ${context}` : context);
+    item.append(link);
+    if (details.hasChildNodes()) item.append(details);
     return item;
   }));
 }
@@ -322,7 +329,7 @@ function renderDetail(place) {
   $('library-back-label').textContent = libraryExperienceId ? 'Quay về trải nghiệm' : 'Quay về thư viện';
   $('library-detail-title').textContent = place?.name ?? 'Không tìm thấy địa điểm';
   $('library-detail-description').textContent = place
-    ? place.description || 'Chưa có mô tả trong dữ liệu demo.'
+    ? place.description || 'Chưa có mô tả.'
     : 'Địa điểm này không có trong thư viện. Bạn có thể quay về danh sách để chọn điểm khác.';
   $('library-detail-category').hidden = !place?.category;
   $('library-detail-demo').hidden = !place || !!place.sources?.length;
@@ -338,7 +345,7 @@ function renderDetail(place) {
   const ward = placeWard(place.id);
   $('library-detail-ward').textContent = ward ? `Phường ${ward.name}` : 'Chưa xác minh';
   $('library-detail-cost').textContent = placeCost(place);
-  $('library-detail-duration').textContent = Number.isFinite(place.duration) ? `Khoảng ${place.duration} phút` : 'Chưa có thời lượng';
+  $('library-detail-duration').textContent = Number.isFinite(place.duration) ? `${place.durationEstimated ? 'Gợi ý xếp lịch · ' : ''}Khoảng ${place.duration} phút` : 'Chưa có thời lượng';
   $('library-detail-note').hidden = !place.crowd;
   $('library-detail-note').textContent = place.crowd ? `Ghi chú demo: ${place.crowd}.` : '';
   renderHours(place.hours);
@@ -569,6 +576,7 @@ export function renderLibrary(hash, focus, previousHash, renderActions, savedIte
   const params = new URLSearchParams(search);
   const fromTrip = params.get('fromTrip');
   libraryTripId = /^[a-z0-9-]+$/.test(fromTrip ?? '') ? fromTrip : null;
+  $('library-review-link').hidden = !!libraryTripId || !isLocalLibrary(location.hostname);
   const origin = params.get('experience');
   libraryExperienceId = findPlaceId(path) && Object.hasOwn(experienceById, origin) ? origin : null;
   query.value = params.get('q') ?? '';
