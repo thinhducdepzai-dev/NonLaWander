@@ -5,7 +5,7 @@ import { hasKnownCost } from './planner.js';
 import { placeWard } from './wards.js';
 import { eventDateFilters, eventLibraryHref, libraryEventRange, sessionKind, sessionsInRange, sessionTicketLabel } from './library-events.js';
 import { fields } from './library-handoff.js';
-import { isLocalLibrary } from './library-import.js';
+import { hasCoordinates, isLocalLibrary } from './library-import.js';
 import { libraryImage, sessionImage } from './library-images.js';
 
 const $ = (id) => document.getElementById(id);
@@ -30,7 +30,9 @@ function foldName(value) {
 
 export function filterLibraryPlaces(query, group) {
   const name = foldName(query);
-  return places.filter((place) => foldName(place.name).includes(name) && (!group || place.category === group));
+  const related = new Set(experiences.filter((item) => foldName(item.name).includes(name)).flatMap((item) => item.placeIds));
+  return places.filter((place) => (!group || place.category === group) &&
+    (foldName(place.name).includes(name) || related.has(place.id)));
 }
 
 function libraryPath(placeId, params) {
@@ -126,13 +128,60 @@ function libraryCard(item, href, meta, price) {
 }
 
 function placeCard(place, experienceId) {
-  const meta = [place.category, place.address || areaLabels.get(place.area)].filter(Boolean).join(' · ');
+  const meta = [place.category, place.address || areaLabels.get(place.area), !hasCoordinates(place) && 'Chờ ghim vị trí'].filter(Boolean).join(' · ');
   const row = libraryCard(place, libraryHref(place.id, { experience: experienceId }), meta, placeCost(place));
   row.querySelector('a').dataset.placeId = place.id;
   return row;
 }
 
-function renderResults() {
+let mapMode = false;
+let mapController;
+let mapRender = 0;
+let mapOrigin;
+
+function mapUrl(id, options) {
+  return libraryHref(id, { view: 'map', ...options });
+}
+
+async function showMap(matching, restore, revision) {
+  try {
+    const { createPlaceMap } = await import('./library-map.js');
+    if (revision !== mapRender || $('library-view').hidden || location.hash.split('?')[0] !== '#library') return;
+    mapController ??= createPlaceMap();
+    mapController.show(matching, {
+      restore,
+      target: new URLSearchParams(location.hash.split('?')[1]).get('pin'),
+      detail: (id) => mapUrl(id),
+      onDetail: (id) => { mapOrigin = { list: location.hash, detail: mapUrl(id) }; },
+      cost: (p) => hasKnownCost(p) ? 'Ước tính ' + placeCost(p) + '/người' : '',
+      area: (p) => areaLabels.get(p.area),
+    });
+  } catch (error) {
+    if (revision !== mapRender) return;
+    $('map-tile-error').hidden = false;
+    console.error(error);
+  }
+}
+
+$('map-retry').addEventListener('click', () => {
+  if (mapController) mapController.retry();
+  else location.reload();
+});
+
+results.addEventListener('click', (event) => {
+  const id = event.target.closest('a')?.dataset.placeId;
+  if (mapMode && id && mapController?.selectResult(id)) event.preventDefault();
+});
+
+$('library-back').addEventListener('click', (event) => {
+  if (history.state?.mapParent && $('library-back').hash === history.state.mapParent &&
+      !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+    event.preventDefault();
+    history.back();
+  }
+});
+
+function renderResults(restore = history.state?.placeMap) {
   const group = category.value;
   const matching = filterLibraryPlaces(query.value, group);
   const name = foldName(query.value);
@@ -144,11 +193,20 @@ function renderResults() {
     return row;
   }));
   results.replaceChildren(...matching.map((place) => placeCard(place)));
+  const mapped = mapMode && matching.some(hasCoordinates);
+  $('library-view').classList.toggle('map-mode', mapMode);
+  $('library-place-map').hidden = !mapped;
+  $('library-list-mode').href = $('map-error-list').href = libraryHref();
+  $('library-map-mode').href = mapUrl();
+  $('library-list-mode').setAttribute('aria-current', mapMode ? 'false' : 'true');
+  $('library-map-mode').setAttribute('aria-current', mapMode ? 'true' : 'false');
+  const revision = ++mapRender;
+  if (mapped) showMap(matching, restore, revision);
   $('library-experience-count').textContent = `${ideas.length} trải nghiệm`;
-  $('library-experience-results').hidden = !ideas.length;
+  $('library-experience-results').hidden = mapMode || !ideas.length;
   $('library-result-count').textContent = `${matching.length} địa điểm`;
   $('library-place-results').hidden = !matching.length;
-  $('library-empty').hidden = !!(matching.length || ideas.length);
+  $('library-empty').hidden = !!(matching.length || (!mapMode && ideas.length));
   $('library-reset').disabled = !query.value && !group;
 }
 
@@ -287,9 +345,9 @@ function renderDetailImage(image) {
 }
 
 function updateFilters() {
-  const href = libraryHref();
-  if (location.hash !== href) history.replaceState(history.state, '', href);
-  renderResults();
+  const href = mapMode ? mapUrl() : libraryHref();
+  history.replaceState({ ...history.state, placeMap: null }, '', href);
+  renderResults(null);
 }
 
 const filters = $('library-filters');
@@ -583,6 +641,14 @@ export function renderLibrary(hash, focus, previousHash, renderActions, savedIte
   category.value = params.get('group') ?? '';
   const showingEvents = path === eventsPath;
   const isList = path === '#library' || showingEvents;
+  mapMode = path === '#library' && params.get('view') === 'map';
+  $('library-display').hidden = showingEvents;
+  $('detail-on-map').hidden = true;
+  $('library-view').classList.toggle('map-mode', mapMode);
+  if (mapOrigin?.detail === hash && previousHash === mapOrigin.list) {
+    history.replaceState({ ...history.state, mapParent: mapOrigin.list }, '', hash);
+  }
+  mapOrigin = null;
   const sessionId = findSessionId(path);
   const experienceId = findExperienceId(path);
   $('library-view').hidden = !isList;
@@ -637,13 +703,22 @@ export function renderLibrary(hash, focus, previousHash, renderActions, savedIte
     image = place?.image;
     renderDetail(place);
     addFocus = renderActions(place, params);
+    if (place && hasCoordinates(place)) {
+      if (params.get('view') === 'map') {
+        $('library-back-label').textContent = 'Quay lại bản đồ';
+        $('library-back').href = history.state?.mapParent || mapUrl(null, { pin: id });
+      } else {
+        $('detail-on-map').href = mapUrl(null, { pin: id });
+        $('detail-on-map').hidden = false;
+      }
+    }
   }
   renderSources(sources);
   renderDetailImage(image);
 
   const heading = $(isList ? 'library-title' : 'library-detail-title');
   document.title = isList ? 'Library · NonLa Wander' : `${heading.textContent} · Library · NonLa Wander`;
-  if (!focus) return;
+  if (!focus || (mapMode && history.state?.placeMap)) return;
 
   const previousPath = previousHash.split('?', 1)[0];
   const previousPlace = findPlaceId(previousPath);

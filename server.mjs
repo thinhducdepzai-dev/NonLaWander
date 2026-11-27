@@ -3,6 +3,10 @@ import { open } from 'node:fs/promises';
 import { extname } from 'node:path';
 
 const root = new URL('./public/', import.meta.url);
+const mapAssets = new Map([
+  ['vendor/leaflet.js', new URL('./node_modules/leaflet/dist/leaflet-src.esm.js', import.meta.url)],
+  ['vendor/leaflet.css', new URL('./node_modules/leaflet/dist/leaflet.css', import.meta.url)],
+]);
 const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PORT || 3000);
 
@@ -31,7 +35,7 @@ createServer(async (request, response) => {
   }
 
   try {
-    const file = await open(new URL(asset, root), 'r');
+    const file = await open(mapAssets.get(asset) ?? new URL(asset, root), 'r');
     if (request.method === 'HEAD') {
       await file.close();
       response.writeHead(200, { 'Content-Type': type }).end();

@@ -137,6 +137,10 @@
         <button type="reset" id="library-reset" class="library-reset" disabled>Xóa bộ lọc</button>
       </form>
 
+      <nav id="library-display" aria-label="Cách xem địa điểm">
+        <a id="library-list-mode" href="#library">Danh sách</a>
+        <a id="library-map-mode" href="#library?view=map">Bản đồ</a>
+      </nav>
       <p id="library-empty" class="library-empty" role="status" hidden>Không tìm thấy kết quả. Hãy thử từ khóa khác hoặc xóa bộ lọc.</p>
       <section id="library-experience-results" class="library-results" aria-labelledby="library-experience-results-title" hidden>
         <div class="library-results-heading">
@@ -151,7 +155,17 @@
           <h2 id="library-results-title">Địa điểm</h2>
           <p id="library-result-count" role="status" aria-atomic="true"></p>
         </div>
-        <ul id="library-places" class="library-places" role="list"></ul>
+        <div class="place-workspace">
+          <ul id="library-places" class="library-places" role="list"></ul>
+          <section id="library-place-map" aria-label="Bản đồ địa điểm" hidden>
+            <div id="place-map-canvas" aria-label="Bản đồ đường phố Hà Nội"></div>
+            <button id="map-fit" class="text-button" type="button">Xem tất cả kết quả</button>
+            <div id="map-tile-error" role="status" hidden>Chưa tải được nền bản đồ.
+              <button id="map-retry" type="button">Thử lại</button> <a id="map-error-list" href="#library">Về danh sách</a>
+            </div>
+            <section id="map-preview" aria-label="Xem nhanh địa điểm" hidden></section>
+          </section>
+        </div>
       </section>
 
       <template id="library-place-template">
@@ -171,6 +185,7 @@
 
     <section id="library-detail" class="library-view" aria-labelledby="library-detail-title" hidden>
       <a id="library-back" class="back-link" href="#library"><span aria-hidden="true">←</span> <span id="library-back-label">Quay về thư viện</span></a>
+      <a id="detail-on-map" class="back-link" hidden>Xem trên bản đồ</a>
       <header class="library-heading">
         <p id="library-detail-category" class="library-detail-category"></p>
         <h1 id="library-detail-title" tabindex="-1"></h1>

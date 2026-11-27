@@ -1,21 +1,11 @@
 import { experienceHref, tripLibraryHref } from './library.js';
 import { normalizeWardIds, wardById, wardLibrary, wards, wardSources } from './wards.js';
 
-let boundaryRequest;
+import { wardBoundaries } from './ward-boundaries.js';
+
 const svgNS = 'http://www.w3.org/2000/svg';
 const mapWidth = 330;
 const mapHeight = 242;
-
-function boundaries() {
-  boundaryRequest ??= fetch('/assets/hanoi-wards.geojson').then((response) => {
-    if (!response.ok) throw new Error('Ward boundaries unavailable');
-    return response.json();
-  }).then(({ features }) => {
-    if (!wards.every(({ id }) => features.some((feature) => feature.id === id))) throw new Error('Missing ward geometry');
-    return features;
-  });
-  return boundaryRequest;
-}
 
 function svgNode(tag, attributes) {
   const node = document.createElementNS(svgNS, tag);
@@ -202,7 +192,7 @@ export function setupWardPicker(root, change, openLink) {
       renderSelected();
       if (started) return;
       started = true;
-      boundaries().then((features) => {
+      wardBoundaries().then((features) => {
         regions = drawMap(features, $('.ward-map'), view);
         $('.ward-credit').hidden = false;
         renderView();

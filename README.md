@@ -1,10 +1,11 @@
 # NonLa Wander
 
-Prototype cẩm nang đi bộ Hà Nội bằng HTML, CSS và JavaScript thuần. Máy chủ Node phục vụ tài nguyên tĩnh. Bản chạy cục bộ dùng Node.js **22.17.1** và npm **10.9.2**, không cần cài thư viện.
+Prototype cẩm nang đi bộ Hà Nội bằng HTML, CSS và JavaScript thuần. Máy chủ Node phục vụ tài nguyên tĩnh. Bản chạy cục bộ dùng Node.js **22.17.1** và npm **10.9.2**.
 
 ## Chạy
 
 ```sh
+npm ci
 npm run dev
 ```
 
@@ -19,6 +20,12 @@ npm test
 Mở [Duyệt Discovery](http://127.0.0.1:3000/library-review.html) sau khi chạy `npm run dev`. Có thể mở từ Library chung. Dùng **Chọn tệp bàn giao** để xem trước tệp `../NonLa-Discovery/output/pilot-ca-phe-trung-i3d/library-handoff-v1.json`. Chọn các mục muốn ghi, chọn chi nhánh khi cần rồi bấm **Duyệt và thêm vào Library**. Dữ liệu fixture được xem trước và bị chặn khi ghi.
 
 Danh mục được lưu trong `localStorage` của trình duyệt tại cùng địa chỉ web. Library chung và các chuyến đều thấy kết quả sau khi tải lại. Mỗi chuyến vẫn có thao tác lưu riêng. Màn duyệt giữ ngày và đoạn trích nguồn, giữ ID và tọa độ của chi nhánh hiện có. Mục thiếu tọa độ hiện **Chờ ghim vị trí**. Ảnh trong tệp được liên kết để tham khảo.
+
+## Bản đồ địa điểm trong Library
+
+Chọn **Bản đồ** dưới bộ lọc Library. Rê chuột, dùng bàn phím hoặc chạm ghim để xem nhanh. Các ghim gần nhau có bộ chọn từng chi nhánh. **Xem chi tiết** mở trang địa điểm. **Quay lại bản đồ** và Back khôi phục vị trí vừa xem. Địa điểm thiếu tọa độ vẫn có trong danh sách với nhãn **Chờ ghim vị trí**.
+
+Leaflet được phục vụ cục bộ. Nền đường phố [OpenStreetMap](https://www.openstreetmap.org/copyright) tải khi xem bản đồ, cần mạng và tuân theo [chính sách tile](https://operations.osmfoundation.org/policies/tiles/). Tọa độ demo mang tính tham khảo. Mục nhập qua Discovery dùng tọa độ có bằng chứng hoặc tọa độ của chi nhánh đã khớp.
 
 ## Thử lịch mẫu
 

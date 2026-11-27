@@ -13,5 +13,8 @@
     "start": "node server.mjs",
     "library:review": "node scripts/review-library-handoff.mjs",
     "test": "node --test"
+  },
+  "dependencies": {
+    "leaflet": "1.9.4"
   }
 }
