@@ -62,7 +62,7 @@ export function createPlaceMap() {
     if (restoring || !visible()) return;
     const center = map.getCenter();
     const placeMap = { center: [center.lat, center.lng], zoom: map.getZoom(),
-      selected: selected?.id, scroll: list.scrollTop, pageY: window.scrollY };
+      selected: pinned ? selected?.id : null, scroll: list.scrollTop, pageY: window.scrollY };
     history.replaceState({ ...history.state, placeMap }, '', location.href);
   }
 
@@ -90,12 +90,14 @@ export function createPlaceMap() {
   function close(focus = false) {
     clearTimeout(timer);
     const pin = pins.get(selected?.id)?.getElement();
+    const wasPinned = pinned;
     pinned = false;
     label?.remove();
     selected = null;
     preview.hidden = true;
     preview.replaceChildren();
     highlight();
+    if (wasPinned) save();
     if (focus && pin) {
       returningFocus = true;
       pin.focus({ preventScroll: true });
@@ -148,6 +150,7 @@ export function createPlaceMap() {
     preview.hidden = false;
     positionCard();
     highlight();
+    if (lock) save();
   }
 
   function laterClose() {
@@ -246,7 +249,14 @@ export function createPlaceMap() {
   function selectResult(id) {
     const place = places.find((p) => p.id === id);
     if (!place) return false;
-    choose(place, true, pins.get(id)?.options.group);
+    const marker = pins.get(id);
+    if (!restoring && marker) {
+      // A clustered result is represented by the visible cluster marker.
+      map.panInside(marker.getLatLng(), {
+        paddingTopLeft: [28, 60], paddingBottomRight: [28, 28], animate: !reduced.matches,
+      });
+    }
+    choose(place, true, marker?.options.group);
     return true;
   }
 
@@ -266,7 +276,8 @@ export function createPlaceMap() {
       else if (target) map.setView(position(target), 16, { animate: false });
       else fit();
       drawPins();
-      if (saved?.selected || target) selectResult(saved?.selected || target.id);
+      const selectedId = saved ? saved.selected : target?.id;
+      if (selectedId) selectResult(selectedId);
       list.scrollTop = saved?.scroll || 0;
       if (saved) {
         window.scrollTo({ top: saved.pageY, behavior: 'instant' });
